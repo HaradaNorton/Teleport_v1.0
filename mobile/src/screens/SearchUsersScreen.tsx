@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import api from '../services/api';
 import { useChatStore } from '../store/chatStore';
@@ -17,13 +18,17 @@ import type { User } from '../types';
 
 type Props = {
   navigation: StackNavigationProp<RootStackParamList, 'SearchUsers'>;
+  route: RouteProp<RootStackParamList, 'SearchUsers'>;
 };
 
-export default function SearchUsersScreen({ navigation }: Props) {
+export default function SearchUsersScreen({ navigation, route }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const loadChats = useChatStore((state) => state.loadChats);
+
+  const mode = route.params?.mode || 'new_chat';
+  const chatId = route.params?.chatId;
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
@@ -47,24 +52,36 @@ export default function SearchUsersScreen({ navigation }: Props) {
   };
 
   const handleSelectUser = async (user: User) => {
-    try {
-      // Создаем личный чат с этим пользователем
-      const result = await api.createChat({
-        type: 'personal',
-        user_ids: [user.id],
-      });
+    if (mode === 'add_to_group' && chatId) {
+      // Add member to existing group
+      try {
+        await api.addChatMember(chatId, user.id);
+        Alert.alert('Success', `${user.name || user.phone_number} added to group`);
+        navigation.goBack();
+      } catch (error: any) {
+        console.error('Add member error:', error);
+        Alert.alert('Error', error?.response?.data?.error || 'Failed to add member');
+      }
+    } else {
+      // Create new personal chat
+      try {
+        const result = await api.createChat({
+          type: 'personal',
+          user_ids: [user.id],
+        });
 
-      // Обновляем список чатов
-      await loadChats();
+        // Обновляем список чатов
+        await loadChats();
 
-      // Переходим в созданный чат
-      navigation.navigate('Chat', {
-        chatId: result.chat_id,
-        chatTitle: user.name || user.phone_number,
-      });
-    } catch (error: any) {
-      console.error('Create chat error:', error);
-      Alert.alert('Error', error?.response?.data?.error || 'Failed to create chat');
+        // Переходим в созданный чат
+        navigation.navigate('Chat', {
+          chatId: result.chat_id,
+          chatTitle: user.name || user.phone_number,
+        });
+      } catch (error: any) {
+        console.error('Create chat error:', error);
+        Alert.alert('Error', error?.response?.data?.error || 'Failed to create chat');
+      }
     }
   };
 

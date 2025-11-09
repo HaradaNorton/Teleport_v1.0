@@ -86,6 +86,7 @@ export default function NewGroupScreen({ navigation, route }: Props) {
       navigation.navigate('Chat', {
         chatId: result.chat_id,
         chatTitle: groupName.trim(),
+        chatType: 'group',
       });
     } catch (error: any) {
       console.error('Create group error:', error);

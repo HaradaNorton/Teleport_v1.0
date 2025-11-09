@@ -21,19 +21,41 @@ type Props = {
   route: RouteProp<RootStackParamList, 'Chat'>;
 };
 
-export default function ChatScreen({ route }: Props) {
-  const { chatId } = route.params;
+export default function ChatScreen({ navigation, route }: Props) {
+  const { chatId, chatTitle, chatType } = route.params;
   const [messageText, setMessageText] = useState('');
   const flatListRef = useRef<FlatList>(null);
 
-  const { messages, loadMessages, sendMessage } = useChatStore();
+  const { messages, loadMessages, sendMessage, chats } = useChatStore();
   const { user } = useAuthStore();
 
   const chatMessages = messages[chatId] || [];
+  const currentChat = chats.find((c) => c.chat.id === chatId);
+  const isGroupChat = currentChat?.chat.type === 'group' || chatType === 'group';
 
   useEffect(() => {
     loadMessages(chatId);
   }, [chatId]);
+
+  React.useLayoutEffect(() => {
+    if (isGroupChat) {
+      navigation.setOptions({
+        headerRight: () => (
+          <TouchableOpacity
+            onPress={() =>
+              navigation.navigate('GroupInfo', {
+                chatId,
+                chatTitle,
+              })
+            }
+            style={{ marginRight: 15 }}
+          >
+            <Text style={{ color: '#0088cc', fontSize: 16 }}>Info</Text>
+          </TouchableOpacity>
+        ),
+      });
+    }
+  }, [navigation, isGroupChat, chatId, chatTitle]);
 
   const handleSend = async () => {
     if (!messageText.trim()) return;

@@ -36,6 +36,12 @@ export default function ChatListScreen({ navigation }: Props) {
             <Text style={styles.headerButtonText}>New Chat</Text>
           </TouchableOpacity>
           <TouchableOpacity
+            onPress={() => navigation.navigate('NewGroup')}
+            style={styles.headerButton}
+          >
+            <Text style={styles.headerButtonText}>New Group</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={() => navigation.navigate('Profile')}
             style={styles.headerButton}
           >
