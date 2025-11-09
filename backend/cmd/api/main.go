@@ -85,6 +85,7 @@ func main() {
 			userHandler := handlers.NewUserHandler(db, redisClient)
 			users := protected.Group("/users")
 			{
+				users.GET("/search", userHandler.SearchUsers)
 				users.GET("/me", userHandler.GetMe)
 				users.PUT("/me", userHandler.UpdateProfile)
 				users.GET("/:id", userHandler.GetUser)

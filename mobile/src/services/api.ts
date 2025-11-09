@@ -143,6 +143,13 @@ class ApiService {
     return response.data;
   }
 
+  async searchUsers(query: string): Promise<{ users: User[]; total: number }> {
+    const response = await this.client.get('/users/search', {
+      params: { q: query },
+    });
+    return response.data;
+  }
+
   // Chats
   async getChats(): Promise<ChatListResponse> {
     const response = await this.client.get('/chats');

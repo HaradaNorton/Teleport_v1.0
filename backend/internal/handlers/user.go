@@ -114,6 +114,65 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
+// SearchUsers ищет пользователей по номеру телефона или имени
+func (h *UserHandler) SearchUsers(c *gin.Context) {
+	query := c.Query("q")
+	if query == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "search query required"})
+		return
+	}
+
+	currentUserID := c.MustGet("user_id").(uuid.UUID)
+
+	// Поиск по номеру телефона или имени
+	rows, err := h.db.Query(`
+		SELECT id, phone_number, name, avatar_url, bio, created_at, updated_at, last_seen, is_online
+		FROM users
+		WHERE (phone_number ILIKE $1 OR name ILIKE $1)
+		  AND id != $2
+		LIMIT 50
+	`, "%"+query+"%", currentUserID)
+
+	if err != nil {
+		log.Printf("Failed to search users: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "search failed"})
+		return
+	}
+	defer rows.Close()
+
+	var users []models.User
+	for rows.Next() {
+		var user models.User
+		err := rows.Scan(
+			&user.ID,
+			&user.PhoneNumber,
+			&user.Name,
+			&user.AvatarURL,
+			&user.Bio,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+			&user.LastSeen,
+			&user.IsOnline,
+		)
+
+		if err != nil {
+			log.Printf("Failed to scan user: %v", err)
+			continue
+		}
+
+		users = append(users, user)
+	}
+
+	if users == nil {
+		users = []models.User{}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"users": users,
+		"total": len(users),
+	})
+}
+
 func (h *UserHandler) getUserByID(userID uuid.UUID) (*models.User, error) {
 	var user models.User
 	err := h.db.QueryRow(`

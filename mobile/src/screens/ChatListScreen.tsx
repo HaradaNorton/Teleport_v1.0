@@ -28,12 +28,20 @@ export default function ChatListScreen({ navigation }: Props) {
   React.useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Profile')}
-          style={styles.headerButton}
-        >
-          <Text style={styles.headerButtonText}>Profile</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row' }}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('SearchUsers')}
+            style={styles.headerButton}
+          >
+            <Text style={styles.headerButtonText}>New Chat</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Profile')}
+            style={styles.headerButton}
+          >
+            <Text style={styles.headerButtonText}>Profile</Text>
+          </TouchableOpacity>
+        </View>
       ),
     });
   }, [navigation]);
@@ -93,6 +101,12 @@ export default function ChatListScreen({ navigation }: Props) {
         <Text style={styles.emptySubtext}>
           Start a conversation to see it here
         </Text>
+        <TouchableOpacity
+          style={styles.emptyButton}
+          onPress={() => navigation.navigate('SearchUsers')}
+        >
+          <Text style={styles.emptyButtonText}>Start New Chat</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -107,6 +121,14 @@ export default function ChatListScreen({ navigation }: Props) {
           <RefreshControl refreshing={isLoading} onRefresh={loadChats} />
         }
       />
+
+      {/* Floating Action Button */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('SearchUsers')}
+      >
+        <Text style={styles.fabText}>+</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -200,5 +222,38 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
     textAlign: 'center',
+  },
+  emptyButton: {
+    marginTop: 30,
+    backgroundColor: '#0088cc',
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderRadius: 25,
+  },
+  emptyButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#0088cc',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  fabText: {
+    color: '#fff',
+    fontSize: 30,
+    fontWeight: '300',
   },
 });
