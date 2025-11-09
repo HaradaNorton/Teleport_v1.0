@@ -9,6 +9,8 @@ import ChatListScreen from '../screens/ChatListScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SearchUsersScreen from '../screens/SearchUsersScreen';
+import NewGroupScreen from '../screens/NewGroupScreen';
+import type { User } from '../types';
 
 export type RootStackParamList = {
   PhoneInput: undefined;
@@ -17,6 +19,7 @@ export type RootStackParamList = {
   Chat: { chatId: string; chatTitle?: string };
   Profile: undefined;
   SearchUsers: undefined;
+  NewGroup: { selectedUsers?: User[] };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -65,6 +68,11 @@ export default function AppNavigator() {
               name="SearchUsers"
               component={SearchUsersScreen}
               options={{ title: 'New Chat' }}
+            />
+            <Stack.Screen
+              name="NewGroup"
+              component={NewGroupScreen}
+              options={{ title: 'New Group' }}
             />
           </>
         )}

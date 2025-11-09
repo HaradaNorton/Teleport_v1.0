@@ -98,11 +98,19 @@ func main() {
 				chats.GET("", chatHandler.GetChats)
 				chats.POST("", chatHandler.CreateChat)
 				chats.GET("/:id", chatHandler.GetChat)
+				chats.PUT("/:id", chatHandler.UpdateChatInfo)
 				chats.GET("/:id/messages", chatHandler.GetMessages)
 				chats.POST("/:id/messages", chatHandler.SendMessage)
 				chats.PUT("/messages/:messageId", chatHandler.EditMessage)
 				chats.DELETE("/messages/:messageId", chatHandler.DeleteMessage)
 				chats.POST("/messages/:messageId/read", chatHandler.MarkAsRead)
+
+				// Group management
+				chats.GET("/:id/members", chatHandler.GetChatMembers)
+				chats.POST("/:id/members", chatHandler.AddChatMember)
+				chats.DELETE("/:id/members/:userId", chatHandler.RemoveChatMember)
+				chats.PUT("/:id/members/:userId/role", chatHandler.UpdateMemberRole)
+				chats.POST("/:id/leave", chatHandler.LeaveChat)
 			}
 		}
 

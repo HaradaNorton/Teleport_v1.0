@@ -189,6 +189,32 @@ class ApiService {
     await this.client.post(`/chats/messages/${messageId}/read`);
   }
 
+  // Group management
+  async getChatMembers(chatId: string): Promise<{ members: any[]; total: number }> {
+    const response = await this.client.get(`/chats/${chatId}/members`);
+    return response.data;
+  }
+
+  async addChatMember(chatId: string, userId: string): Promise<void> {
+    await this.client.post(`/chats/${chatId}/members`, { user_id: userId });
+  }
+
+  async removeChatMember(chatId: string, userId: string): Promise<void> {
+    await this.client.delete(`/chats/${chatId}/members/${userId}`);
+  }
+
+  async updateChatInfo(chatId: string, data: { title?: string; avatar_url?: string }): Promise<void> {
+    await this.client.put(`/chats/${chatId}`, data);
+  }
+
+  async updateMemberRole(chatId: string, userId: string, role: string): Promise<void> {
+    await this.client.put(`/chats/${chatId}/members/${userId}/role`, { role });
+  }
+
+  async leaveChat(chatId: string): Promise<void> {
+    await this.client.post(`/chats/${chatId}/leave`);
+  }
+
   // Helper method для проверки авторизации
   async isAuthenticated(): Promise<boolean> {
     const token = await AsyncStorage.getItem('access_token');

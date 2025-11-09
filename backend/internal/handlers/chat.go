@@ -493,3 +493,341 @@ func (h *ChatHandler) findPersonalChat(user1ID, user2ID uuid.UUID) (uuid.UUID, e
 
 	return chatID, err
 }
+
+// GetChatMembers возвращает список участников чата
+func (h *ChatHandler) GetChatMembers(c *gin.Context) {
+	chatIDStr := c.Param("id")
+	chatID, err := uuid.Parse(chatIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid chat id"})
+		return
+	}
+
+	userID := c.MustGet("user_id").(uuid.UUID)
+
+	// Проверка что пользователь является участником
+	if !h.isChatMember(chatID, userID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "not a chat member"})
+		return
+	}
+
+	rows, err := h.db.Query(`
+		SELECT u.id, u.phone_number, u.name, u.avatar_url, u.bio, u.is_online,
+		       cm.role, cm.joined_at
+		FROM chat_members cm
+		INNER JOIN users u ON cm.user_id = u.id
+		WHERE cm.chat_id = $1 AND cm.left_at IS NULL
+		ORDER BY cm.role DESC, cm.joined_at ASC
+	`, chatID)
+
+	if err != nil {
+		log.Printf("Failed to get chat members: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get members"})
+		return
+	}
+	defer rows.Close()
+
+	type MemberWithRole struct {
+		models.User
+		Role     models.MemberRole `json:"role"`
+		JoinedAt time.Time         `json:"joined_at"`
+	}
+
+	var members []MemberWithRole
+	for rows.Next() {
+		var member MemberWithRole
+		err := rows.Scan(
+			&member.ID,
+			&member.PhoneNumber,
+			&member.Name,
+			&member.AvatarURL,
+			&member.Bio,
+			&member.IsOnline,
+			&member.Role,
+			&member.JoinedAt,
+		)
+
+		if err != nil {
+			log.Printf("Failed to scan member: %v", err)
+			continue
+		}
+
+		members = append(members, member)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"members": members,
+		"total":   len(members),
+	})
+}
+
+// AddChatMember добавляет участника в группу
+func (h *ChatHandler) AddChatMember(c *gin.Context) {
+	chatIDStr := c.Param("id")
+	chatID, err := uuid.Parse(chatIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid chat id"})
+		return
+	}
+
+	userID := c.MustGet("user_id").(uuid.UUID)
+
+	var req struct {
+		UserID uuid.UUID `json:"user_id" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	// Проверка прав (только владельцы и админы могут добавлять)
+	if !h.isAdminOrOwner(chatID, userID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "insufficient permissions"})
+		return
+	}
+
+	// Добавляем участника
+	_, err = h.db.Exec(`
+		INSERT INTO chat_members (chat_id, user_id, role)
+		VALUES ($1, $2, 'member')
+		ON CONFLICT (chat_id, user_id) DO UPDATE SET left_at = NULL
+	`, chatID, req.UserID)
+
+	if err != nil {
+		log.Printf("Failed to add member: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to add member"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "member added"})
+}
+
+// RemoveChatMember удаляет участника из группы
+func (h *ChatHandler) RemoveChatMember(c *gin.Context) {
+	chatIDStr := c.Param("id")
+	chatID, err := uuid.Parse(chatIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid chat id"})
+		return
+	}
+
+	userIDStr := c.Param("userId")
+	targetUserID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	currentUserID := c.MustGet("user_id").(uuid.UUID)
+
+	// Проверка прав (только владельцы и админы могут удалять)
+	if !h.isAdminOrOwner(chatID, currentUserID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "insufficient permissions"})
+		return
+	}
+
+	// Нельзя удалить владельца
+	var targetRole models.MemberRole
+	err = h.db.QueryRow(`
+		SELECT role FROM chat_members
+		WHERE chat_id = $1 AND user_id = $2 AND left_at IS NULL
+	`, chatID, targetUserID).Scan(&targetRole)
+
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not in chat"})
+		return
+	}
+
+	if targetRole == models.RoleOwner {
+		c.JSON(http.StatusForbidden, gin.H{"error": "cannot remove owner"})
+		return
+	}
+
+	// Удаляем участника
+	_, err = h.db.Exec(`
+		UPDATE chat_members
+		SET left_at = CURRENT_TIMESTAMP
+		WHERE chat_id = $1 AND user_id = $2
+	`, chatID, targetUserID)
+
+	if err != nil {
+		log.Printf("Failed to remove member: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to remove member"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "member removed"})
+}
+
+// UpdateChatInfo обновляет информацию о группе
+func (h *ChatHandler) UpdateChatInfo(c *gin.Context) {
+	chatIDStr := c.Param("id")
+	chatID, err := uuid.Parse(chatIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid chat id"})
+		return
+	}
+
+	userID := c.MustGet("user_id").(uuid.UUID)
+
+	var req struct {
+		Title     *string `json:"title"`
+		AvatarURL *string `json:"avatar_url"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	// Проверка прав
+	if !h.isAdminOrOwner(chatID, userID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "insufficient permissions"})
+		return
+	}
+
+	// Динамическое построение запроса
+	query := "UPDATE chats SET updated_at = CURRENT_TIMESTAMP"
+	args := []interface{}{}
+	argCount := 1
+
+	if req.Title != nil {
+		query += ", title = $" + string(rune(argCount+'0'))
+		args = append(args, *req.Title)
+		argCount++
+	}
+
+	if req.AvatarURL != nil {
+		query += ", avatar_url = $" + string(rune(argCount+'0'))
+		args = append(args, *req.AvatarURL)
+		argCount++
+	}
+
+	query += " WHERE id = $" + string(rune(argCount+'0'))
+	args = append(args, chatID)
+
+	_, err = h.db.Exec(query, args...)
+	if err != nil {
+		log.Printf("Failed to update chat info: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update chat"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "chat updated"})
+}
+
+// UpdateMemberRole изменяет роль участника
+func (h *ChatHandler) UpdateMemberRole(c *gin.Context) {
+	chatIDStr := c.Param("id")
+	chatID, err := uuid.Parse(chatIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid chat id"})
+		return
+	}
+
+	userIDStr := c.Param("userId")
+	targetUserID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	currentUserID := c.MustGet("user_id").(uuid.UUID)
+
+	var req struct {
+		Role models.MemberRole `json:"role" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	// Только владелец может изменять роли
+	if !h.isOwner(chatID, currentUserID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "only owner can change roles"})
+		return
+	}
+
+	// Нельзя изменить роль владельца
+	if req.Role == models.RoleOwner {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot set owner role"})
+		return
+	}
+
+	_, err = h.db.Exec(`
+		UPDATE chat_members
+		SET role = $1
+		WHERE chat_id = $2 AND user_id = $3 AND left_at IS NULL
+	`, req.Role, chatID, targetUserID)
+
+	if err != nil {
+		log.Printf("Failed to update role: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update role"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "role updated"})
+}
+
+// LeaveChat выход из группы
+func (h *ChatHandler) LeaveChat(c *gin.Context) {
+	chatIDStr := c.Param("id")
+	chatID, err := uuid.Parse(chatIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid chat id"})
+		return
+	}
+
+	userID := c.MustGet("user_id").(uuid.UUID)
+
+	// Проверка что это не владелец
+	if h.isOwner(chatID, userID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "owner cannot leave, transfer ownership first"})
+		return
+	}
+
+	_, err = h.db.Exec(`
+		UPDATE chat_members
+		SET left_at = CURRENT_TIMESTAMP
+		WHERE chat_id = $1 AND user_id = $2
+	`, chatID, userID)
+
+	if err != nil {
+		log.Printf("Failed to leave chat: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to leave chat"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "left chat"})
+}
+
+// Helper functions for permissions
+func (h *ChatHandler) isAdminOrOwner(chatID, userID uuid.UUID) bool {
+	var role models.MemberRole
+	err := h.db.QueryRow(`
+		SELECT role FROM chat_members
+		WHERE chat_id = $1 AND user_id = $2 AND left_at IS NULL
+	`, chatID, userID).Scan(&role)
+
+	if err != nil {
+		return false
+	}
+
+	return role == models.RoleOwner || role == models.RoleAdmin
+}
+
+func (h *ChatHandler) isOwner(chatID, userID uuid.UUID) bool {
+	var role models.MemberRole
+	err := h.db.QueryRow(`
+		SELECT role FROM chat_members
+		WHERE chat_id = $1 AND user_id = $2 AND left_at IS NULL
+	`, chatID, userID).Scan(&role)
+
+	if err != nil {
+		return false
+	}
+
+	return role == models.RoleOwner
+}
