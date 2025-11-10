@@ -12,6 +12,17 @@ interface ChatState {
   loadChats: () => Promise<void>;
   loadMessages: (chatId: string) => Promise<void>;
   sendMessage: (chatId: string, content: string) => Promise<void>;
+  sendMediaMessage: (
+    chatId: string,
+    mediaData: {
+      type: 'image' | 'video' | 'file' | 'voice';
+      media_url: string;
+      thumbnail_url?: string;
+      file_name: string;
+      mime_type: string;
+      media_size: number;
+    }
+  ) => Promise<void>;
   addMessage: (message: Message) => void;
   setCurrentChat: (chatId: string | null) => void;
 }
@@ -53,6 +64,33 @@ export const useChatStore = create<ChatState>((set, get) => ({
       get().addMessage(message);
     } catch (error) {
       console.error('Send message error:', error);
+      throw error;
+    }
+  },
+
+  sendMediaMessage: async (
+    chatId: string,
+    mediaData: {
+      type: 'image' | 'video' | 'file' | 'voice';
+      media_url: string;
+      thumbnail_url?: string;
+      file_name: string;
+      mime_type: string;
+      media_size: number;
+    }
+  ) => {
+    try {
+      const message = await api.sendMessage(chatId, {
+        type: mediaData.type,
+        media_url: mediaData.media_url,
+        thumbnail_url: mediaData.thumbnail_url,
+        file_name: mediaData.file_name,
+        mime_type: mediaData.mime_type,
+        media_size: mediaData.media_size,
+      });
+      get().addMessage(message);
+    } catch (error) {
+      console.error('Send media message error:', error);
       throw error;
     }
   },

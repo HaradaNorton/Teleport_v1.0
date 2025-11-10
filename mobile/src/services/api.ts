@@ -173,9 +173,15 @@ class ApiService {
   }
 
   async sendMessage(chatId: string, data: {
-    content: string;
+    content?: string;
     type?: 'text' | 'image' | 'video' | 'file' | 'voice';
     reply_to_id?: string;
+    media_url?: string;
+    thumbnail_url?: string;
+    file_name?: string;
+    mime_type?: string;
+    media_size?: number;
+    media_duration?: number;
   }): Promise<Message> {
     const response = await this.client.post(`/chats/${chatId}/messages`, {
       chat_id: chatId,
