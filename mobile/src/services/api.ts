@@ -195,6 +195,14 @@ class ApiService {
     await this.client.post(`/chats/messages/${messageId}/read`);
   }
 
+  async editMessage(messageId: string, content: string): Promise<void> {
+    await this.client.put(`/chats/messages/${messageId}`, { content });
+  }
+
+  async deleteMessage(messageId: string): Promise<void> {
+    await this.client.delete(`/chats/messages/${messageId}`);
+  }
+
   // Group management
   async getChatMembers(chatId: string): Promise<{ members: any[]; total: number }> {
     const response = await this.client.get(`/chats/${chatId}/members`);

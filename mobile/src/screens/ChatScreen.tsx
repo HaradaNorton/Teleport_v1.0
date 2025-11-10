@@ -24,6 +24,7 @@ import api from '../services/api';
 import type { Message } from '../types';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import VoiceMessagePlayer from '../components/VoiceMessagePlayer';
+import MessageActions from '../components/MessageActions';
 
 type Props = {
   navigation: StackNavigationProp<RootStackParamList, 'Chat'>;
@@ -40,9 +41,13 @@ export default function ChatScreen({ navigation, route }: Props) {
     type: string;
     name: string;
   } | null>(null);
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const [showMessageActions, setShowMessageActions] = useState(false);
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [editText, setEditText] = useState('');
   const flatListRef = useRef<FlatList>(null);
 
-  const { messages, loadMessages, sendMessage, sendMediaMessage, chats, typingUsers, sendTyping } =
+  const { messages, loadMessages, sendMessage, sendMediaMessage, chats, typingUsers, sendTyping, editMessage, deleteMessage } =
     useChatStore();
   const { user } = useAuthStore();
   const { isRecording, recordingDuration, startRecording, stopRecording, cancelRecording } =
@@ -279,15 +284,72 @@ export default function ChatScreen({ navigation, route }: Props) {
     };
   }, [chatId]);
 
+  // Message action handlers
+  const handleLongPress = (message: Message) => {
+    setSelectedMessage(message);
+    setShowMessageActions(true);
+  };
+
+  const handleEdit = () => {
+    if (selectedMessage && selectedMessage.type === 'text') {
+      setEditingMessage(selectedMessage);
+      setEditText(selectedMessage.content || '');
+    }
+  };
+
+  const handleDelete = () => {
+    if (selectedMessage) {
+      Alert.alert(
+        'Delete Message',
+        'Are you sure you want to delete this message?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await deleteMessage(selectedMessage.id);
+              } catch (error) {
+                console.error('Failed to delete message:', error);
+                Alert.alert('Error', 'Failed to delete message. Please try again.');
+              }
+            },
+          },
+        ]
+      );
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingMessage || !editText.trim()) return;
+
+    try {
+      await editMessage(editingMessage.id, editText.trim());
+      setEditingMessage(null);
+      setEditText('');
+    } catch (error) {
+      console.error('Failed to edit message:', error);
+      Alert.alert('Error', 'Failed to edit message. Please try again.');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessage(null);
+    setEditText('');
+  };
+
   const renderMessage = ({ item }: { item: Message}) => {
     const isMyMessage = item.sender_id === user?.id;
 
     return (
-      <View
+      <TouchableOpacity
         style={[
           styles.messageContainer,
           isMyMessage ? styles.myMessage : styles.theirMessage,
         ]}
+        onLongPress={() => handleLongPress(item)}
+        activeOpacity={0.7}
       >
         {!isMyMessage && item.sender && isGroupChat && (
           <Text style={styles.senderName}>{item.sender.name || 'Unknown'}</Text>
@@ -348,19 +410,31 @@ export default function ChatScreen({ navigation, route }: Props) {
             </Text>
           )}
 
-          <Text
-            style={[
-              styles.messageTime,
-              isMyMessage ? styles.myTime : styles.theirTime,
-            ]}
-          >
-            {new Date(item.created_at).toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </Text>
+          <View style={styles.messageFooter}>
+            <Text
+              style={[
+                styles.messageTime,
+                isMyMessage ? styles.myTime : styles.theirTime,
+              ]}
+            >
+              {new Date(item.created_at).toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </Text>
+            {item.edited_at && (
+              <Text
+                style={[
+                  styles.editedLabel,
+                  isMyMessage ? styles.myTime : styles.theirTime,
+                ]}
+              >
+                {' (edited)'}
+              </Text>
+            )}
+          </View>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -531,6 +605,61 @@ export default function ChatScreen({ navigation, route }: Props) {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Message Actions Modal */}
+      {selectedMessage && (
+        <MessageActions
+          visible={showMessageActions}
+          onClose={() => setShowMessageActions(false)}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          isMyMessage={selectedMessage.sender_id === user?.id}
+          messageType={selectedMessage.type}
+        />
+      )}
+
+      {/* Edit Message Modal */}
+      <Modal
+        visible={!!editingMessage}
+        transparent
+        animationType="slide"
+        onRequestClose={handleCancelEdit}
+      >
+        <KeyboardAvoidingView
+          style={styles.editModalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.editModalContent}>
+            <Text style={styles.editModalTitle}>Edit Message</Text>
+
+            <TextInput
+              style={styles.editInput}
+              value={editText}
+              onChangeText={setEditText}
+              multiline
+              autoFocus
+              placeholder="Enter your message"
+            />
+
+            <View style={styles.editModalActions}>
+              <TouchableOpacity
+                style={[styles.editModalButton, styles.cancelEditButton]}
+                onPress={handleCancelEdit}
+              >
+                <Text style={styles.cancelEditText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.editModalButton, styles.saveEditButton]}
+                onPress={handleSaveEdit}
+                disabled={!editText.trim()}
+              >
+                <Text style={styles.saveEditText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </KeyboardAvoidingView>
   );
@@ -816,5 +945,68 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     fontStyle: 'italic',
+  },
+  messageFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  editedLabel: {
+    fontSize: 10,
+    fontStyle: 'italic',
+  },
+  editModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  editModalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    minHeight: 200,
+  },
+  editModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  editInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 16,
+    minHeight: 80,
+    maxHeight: 200,
+    textAlignVertical: 'top',
+  },
+  editModalActions: {
+    flexDirection: 'row',
+    marginTop: 15,
+    gap: 10,
+  },
+  editModalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelEditButton: {
+    backgroundColor: '#f0f0f0',
+  },
+  saveEditButton: {
+    backgroundColor: '#0088cc',
+  },
+  cancelEditText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '600',
+  },
+  saveEditText: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '600',
   },
 });

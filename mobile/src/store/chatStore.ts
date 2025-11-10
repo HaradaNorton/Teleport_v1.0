@@ -30,7 +30,11 @@ interface ChatState {
       media_size: number;
     }
   ) => Promise<void>;
+  editMessage: (messageId: string, content: string) => Promise<void>;
+  deleteMessage: (messageId: string) => Promise<void>;
   addMessage: (message: Message) => void;
+  updateMessage: (messageId: string, content: string) => void;
+  removeMessage: (messageId: string) => void;
   setCurrentChat: (chatId: string | null) => void;
   connectWebSocket: () => void;
   disconnectWebSocket: () => void;
@@ -107,6 +111,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
+  editMessage: async (messageId: string, content: string) => {
+    try {
+      await api.editMessage(messageId, content);
+      get().updateMessage(messageId, content);
+    } catch (error) {
+      console.error('Edit message error:', error);
+      throw error;
+    }
+  },
+
+  deleteMessage: async (messageId: string) => {
+    try {
+      await api.deleteMessage(messageId);
+      get().removeMessage(messageId);
+    } catch (error) {
+      console.error('Delete message error:', error);
+      throw error;
+    }
+  },
+
   addMessage: (message: Message) => {
     set((state) => {
       const chatMessages = state.messages[message.chat_id] || [];
@@ -116,6 +140,36 @@ export const useChatStore = create<ChatState>((set, get) => ({
           [message.chat_id]: [...chatMessages, message],
         },
       };
+    });
+  },
+
+  updateMessage: (messageId: string, content: string) => {
+    set((state) => {
+      const updatedMessages: Record<string, Message[]> = {};
+
+      Object.keys(state.messages).forEach((chatId) => {
+        updatedMessages[chatId] = state.messages[chatId].map((msg) =>
+          msg.id === messageId
+            ? { ...msg, content, edited_at: new Date().toISOString() }
+            : msg
+        );
+      });
+
+      return { messages: updatedMessages };
+    });
+  },
+
+  removeMessage: (messageId: string) => {
+    set((state) => {
+      const updatedMessages: Record<string, Message[]> = {};
+
+      Object.keys(state.messages).forEach((chatId) => {
+        updatedMessages[chatId] = state.messages[chatId].filter(
+          (msg) => msg.id !== messageId
+        );
+      });
+
+      return { messages: updatedMessages };
     });
   },
 
