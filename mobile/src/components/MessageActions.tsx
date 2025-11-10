@@ -4,9 +4,9 @@ import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 interface MessageActionsProps {
   visible: boolean;
   onClose: () => void;
+  onReply: () => void;
   onEdit?: () => void;
   onDelete: () => void;
-  onReply?: () => void;
   isMyMessage: boolean;
   messageType: string;
 }

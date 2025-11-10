@@ -45,6 +45,7 @@ export default function ChatScreen({ navigation, route }: Props) {
   const [showMessageActions, setShowMessageActions] = useState(false);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [editText, setEditText] = useState('');
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
   const { messages, loadMessages, sendMessage, sendMediaMessage, chats, typingUsers, sendTyping, editMessage, deleteMessage } =
@@ -87,10 +88,12 @@ export default function ChatScreen({ navigation, route }: Props) {
     if (!messageText.trim()) return;
 
     const text = messageText.trim();
+    const replyToId = replyingTo?.id;
     setMessageText('');
+    setReplyingTo(null);
 
     try {
-      await sendMessage(chatId, text);
+      await sendMessage(chatId, text, replyToId);
       // Прокрутка к последнему сообщению
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
@@ -290,6 +293,12 @@ export default function ChatScreen({ navigation, route }: Props) {
     setShowMessageActions(true);
   };
 
+  const handleReply = () => {
+    if (selectedMessage) {
+      setReplyingTo(selectedMessage);
+    }
+  };
+
   const handleEdit = () => {
     if (selectedMessage && selectedMessage.type === 'text') {
       setEditingMessage(selectedMessage);
@@ -398,6 +407,42 @@ export default function ChatScreen({ navigation, route }: Props) {
             />
           )}
 
+          {/* Replied Message */}
+          {item.reply_to && (
+            <View style={styles.repliedMessage}>
+              <View style={[styles.repliedLine, isMyMessage && styles.repliedLineWhite]} />
+              <View style={styles.repliedContent}>
+                <Text
+                  style={[
+                    styles.repliedSender,
+                    isMyMessage ? styles.repliedSenderMy : styles.repliedSenderTheir,
+                  ]}
+                >
+                  {item.reply_to.sender?.name || 'Unknown'}
+                </Text>
+                <Text
+                  style={[
+                    styles.repliedText,
+                    isMyMessage ? styles.repliedTextMy : styles.repliedTextTheir,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {item.reply_to.type === 'text' && item.reply_to.content
+                    ? item.reply_to.content
+                    : item.reply_to.type === 'image'
+                    ? '📷 Photo'
+                    : item.reply_to.type === 'video'
+                    ? '🎥 Video'
+                    : item.reply_to.type === 'voice'
+                    ? '🎤 Voice message'
+                    : item.reply_to.type === 'file'
+                    ? `📎 ${item.reply_to.file_name || 'File'}`
+                    : 'Message'}
+                </Text>
+              </View>
+            </View>
+          )}
+
           {/* Text content */}
           {item.content && (
             <Text
@@ -491,6 +536,39 @@ export default function ChatScreen({ navigation, route }: Props) {
             ) : (
               <Text style={styles.stopRecordIcon}>⬆️</Text>
             )}
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Reply Preview */}
+      {replyingTo && !isRecording && (
+        <View style={styles.replyPreview}>
+          <View style={styles.replyContent}>
+            <View style={styles.replyLine} />
+            <View style={styles.replyInfo}>
+              <Text style={styles.replyName}>
+                {replyingTo.sender?.name || 'Unknown'}
+              </Text>
+              <Text style={styles.replyText} numberOfLines={1}>
+                {replyingTo.type === 'text' && replyingTo.content
+                  ? replyingTo.content
+                  : replyingTo.type === 'image'
+                  ? '📷 Photo'
+                  : replyingTo.type === 'video'
+                  ? '🎥 Video'
+                  : replyingTo.type === 'voice'
+                  ? '🎤 Voice message'
+                  : replyingTo.type === 'file'
+                  ? `📎 ${replyingTo.file_name || 'File'}`
+                  : 'Message'}
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.replyCloseButton}
+            onPress={() => setReplyingTo(null)}
+          >
+            <Text style={styles.replyCloseIcon}>✕</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -612,6 +690,7 @@ export default function ChatScreen({ navigation, route }: Props) {
         <MessageActions
           visible={showMessageActions}
           onClose={() => setShowMessageActions(false)}
+          onReply={handleReply}
           onEdit={handleEdit}
           onDelete={handleDelete}
           isMyMessage={selectedMessage.sender_id === user?.id}
@@ -1008,5 +1087,88 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#fff',
     fontWeight: '600',
+  },
+  replyPreview: {
+    flexDirection: 'row',
+    padding: 10,
+    paddingBottom: 0,
+    backgroundColor: '#f9f9f9',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    alignItems: 'center',
+  },
+  replyContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  replyLine: {
+    width: 3,
+    height: 40,
+    backgroundColor: '#0088cc',
+    borderRadius: 1.5,
+    marginRight: 10,
+  },
+  replyInfo: {
+    flex: 1,
+  },
+  replyName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0088cc',
+    marginBottom: 2,
+  },
+  replyText: {
+    fontSize: 13,
+    color: '#666',
+  },
+  replyCloseButton: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  replyCloseIcon: {
+    fontSize: 20,
+    color: '#999',
+  },
+  repliedMessage: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 8,
+  },
+  repliedLine: {
+    width: 3,
+    backgroundColor: '#0088cc',
+    borderRadius: 1.5,
+    marginRight: 8,
+  },
+  repliedLineWhite: {
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  repliedContent: {
+    flex: 1,
+  },
+  repliedSender: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  repliedSenderMy: {
+    color: 'rgba(255, 255, 255, 0.9)',
+  },
+  repliedSenderTheir: {
+    color: '#0088cc',
+  },
+  repliedText: {
+    fontSize: 12,
+  },
+  repliedTextMy: {
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  repliedTextTheir: {
+    color: '#666',
   },
 });

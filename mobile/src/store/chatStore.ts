@@ -18,7 +18,7 @@ interface ChatState {
   // Actions
   loadChats: () => Promise<void>;
   loadMessages: (chatId: string) => Promise<void>;
-  sendMessage: (chatId: string, content: string) => Promise<void>;
+  sendMessage: (chatId: string, content: string, replyToId?: string) => Promise<void>;
   sendMediaMessage: (
     chatId: string,
     mediaData: {
@@ -74,9 +74,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  sendMessage: async (chatId: string, content: string) => {
+  sendMessage: async (chatId: string, content: string, replyToId?: string) => {
     try {
-      const message = await api.sendMessage(chatId, { content });
+      const message = await api.sendMessage(chatId, { content, reply_to_id: replyToId });
       get().addMessage(message);
     } catch (error) {
       console.error('Send message error:', error);
