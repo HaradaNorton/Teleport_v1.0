@@ -81,7 +81,7 @@ export default function ChatListPage({ onSelectChat, onStartCall }: Props) {
       <div className="chat-list">
         {isLoading ? (
           <div className="loading-state">Loading chats...</div>
-        ) : chats.length === 0 ? (
+        ) : !chats || chats.length === 0 ? (
           <div className="empty-state">
             <p>No chats yet</p>
             <p className="empty-hint">Start a new conversation</p>
