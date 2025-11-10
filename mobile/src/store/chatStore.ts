@@ -211,6 +211,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }));
         break;
 
+      case 'message.read':
+        // Handle read receipt
+        const readPayload = message.payload as any;
+        const { message_id, user_id: readUserId } = readPayload;
+
+        set((state) => {
+          const updatedMessages: Record<string, Message[]> = {};
+
+          Object.keys(state.messages).forEach((chatId) => {
+            updatedMessages[chatId] = state.messages[chatId].map((msg) => {
+              if (msg.id === message_id) {
+                const readBy = msg.read_by || [];
+                if (!readBy.includes(readUserId)) {
+                  return { ...msg, read_by: [...readBy, readUserId] };
+                }
+              }
+              return msg;
+            });
+          });
+
+          return { messages: updatedMessages };
+        });
+        break;
+
       case 'typing':
         // Handle typing indicator
         const typingPayload = message.payload as any;

@@ -62,7 +62,26 @@ export default function ChatScreen({ navigation, route }: Props) {
 
   useEffect(() => {
     loadMessages(chatId);
+
+    // Mark messages as read when opening chat
+    markChatMessagesAsRead();
   }, [chatId]);
+
+  const markChatMessagesAsRead = async () => {
+    const chatMessages = messages[chatId] || [];
+    const unreadMessages = chatMessages.filter(
+      (msg) => msg.sender_id !== user?.id && (!msg.read_by || !msg.read_by.includes(user?.id || ''))
+    );
+
+    // Mark each unread message
+    for (const message of unreadMessages) {
+      try {
+        await api.markAsRead(message.id);
+      } catch (error) {
+        console.error('Failed to mark message as read:', error);
+      }
+    }
+  };
 
   React.useLayoutEffect(() => {
     if (isGroupChat) {
@@ -475,6 +494,11 @@ export default function ChatScreen({ navigation, route }: Props) {
                 ]}
               >
                 {' (edited)'}
+              </Text>
+            )}
+            {isMyMessage && (
+              <Text style={[styles.readStatus, styles.myTime]}>
+                {item.read_by && item.read_by.length > 0 ? ' ✓✓' : ' ✓'}
               </Text>
             )}
           </View>
@@ -1032,6 +1056,10 @@ const styles = StyleSheet.create({
   editedLabel: {
     fontSize: 10,
     fontStyle: 'italic',
+  },
+  readStatus: {
+    fontSize: 11,
+    marginLeft: 4,
   },
   editModalOverlay: {
     flex: 1,

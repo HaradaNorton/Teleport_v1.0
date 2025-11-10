@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -298,6 +299,23 @@ func (h *ChatHandler) GetMessages(c *gin.Context) {
 		}
 
 		msg.Sender = &sender
+
+		// Load read_by users for this message
+		readRows, err := h.db.Query(`
+			SELECT user_id FROM message_reads WHERE message_id = $1
+		`, msg.ID)
+		if err == nil {
+			var readByUsers []string
+			for readRows.Next() {
+				var userID uuid.UUID
+				if err := readRows.Scan(&userID); err == nil {
+					readByUsers = append(readByUsers, userID.String())
+				}
+			}
+			readRows.Close()
+			msg.ReadBy = readByUsers
+		}
+
 		messages = append(messages, msg)
 	}
 
@@ -515,7 +533,7 @@ func (h *ChatHandler) MarkAsRead(c *gin.Context) {
 	userID := c.MustGet("user_id").(uuid.UUID)
 
 	// Добавляем запись о прочтении
-	_, err = h.db.Exec(`
+	result, err := h.db.Exec(`
 		INSERT INTO message_reads (message_id, user_id, read_at)
 		VALUES ($1, $2, CURRENT_TIMESTAMP)
 		ON CONFLICT (message_id, user_id) DO NOTHING
@@ -525,6 +543,31 @@ func (h *ChatHandler) MarkAsRead(c *gin.Context) {
 		log.Printf("Failed to mark as read: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to mark as read"})
 		return
+	}
+
+	// Check if actually inserted (not conflict)
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected > 0 && h.wsHandler != nil {
+		// Get chat_id for this message
+		var chatID uuid.UUID
+		var senderID uuid.UUID
+		err = h.db.QueryRow(`
+			SELECT chat_id, sender_id FROM messages WHERE id = $1
+		`, messageID).Scan(&chatID, &senderID)
+
+		if err == nil {
+			// Broadcast read receipt to message sender via WebSocket
+			wsMsg := models.WSMessage{
+				Type: "message.read",
+				Payload: map[string]interface{}{
+					"message_id": messageID.String(),
+					"user_id":    userID.String(),
+					"chat_id":    chatID.String(),
+				},
+			}
+			data, _ := json.Marshal(wsMsg)
+			h.wsHandler.Hub().SendToUser(senderID, data)
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "marked as read"})
