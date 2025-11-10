@@ -79,8 +79,9 @@ func Load() (*Config, error) {
 			APIVersion: getEnv("API_VERSION", "v1"),
 			CORSOrigins: []string{
 				"http://localhost:3000",
-				"http://localhost:19000",
-				"http://localhost:19006",
+				"http://localhost:5173",  // Vite dev server (desktop)
+				"http://localhost:19000", // Expo
+				"http://localhost:19006", // Expo web
 			},
 		},
 		Database: DatabaseConfig{
