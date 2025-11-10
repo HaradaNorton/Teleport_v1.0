@@ -40,7 +40,6 @@ This will install:
 - TypeScript for type safety
 - Zustand for state management
 - Axios for API calls
-- simple-peer for WebRTC
 
 ## Running the Application
 
@@ -160,14 +159,45 @@ If you need to change the server IP, update these files.
 
 ## Troubleshooting
 
-### Cannot connect to server
+### Quick Diagnostics
+
+If you're experiencing issues, run the automated diagnostic script:
+
+```powershell
+cd desktop
+.\diagnose.ps1
+```
+
+This will test:
+- Docker containers (PostgreSQL and Redis)
+- Backend server connectivity
+- API endpoints
+- Network configuration
+
+For detailed troubleshooting steps, see **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)**
+
+### Common Issues
+
+#### 500 Internal Server Error
+
+If you see "500 Internal Server Error" when logging in:
+
+1. **Check backend logs** - Look for error messages in the terminal where you ran `go run cmd/api/main.go`
+2. **Run diagnostics** - Execute `.\diagnose.ps1` to identify the issue
+3. **Restart backend** - Sometimes the backend starts before the database is ready
+4. **Check database** - Ensure PostgreSQL is running: `docker ps`
+
+See [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) for detailed solutions.
+
+#### Cannot connect to server
 
 Make sure:
 1. Backend server is running on http://192.168.1.109:8080
-2. Both computer and server are on the same network
-3. Firewall is not blocking the connection
+2. Docker containers are running: `docker ps`
+3. Both computer and server are on the same network
+4. Firewall is not blocking port 8080
 
-### Electron window doesn't open
+#### Electron window doesn't open
 
 Try:
 ```bash
@@ -177,14 +207,14 @@ npm install
 npm run dev
 ```
 
-### WebRTC calls not working
+#### WebRTC calls not working
 
 Make sure:
 1. Camera and microphone permissions are granted
 2. Using a secure connection or localhost
 3. STUN servers are accessible (Google STUN servers)
 
-### Build errors
+#### Build errors
 
 Make sure you have:
 - Latest Node.js version (v18+)
@@ -237,13 +267,13 @@ Console logs appear in:
 
 ## Technologies Used
 
-- **Electron** ^28.0.0 - Desktop framework
+- **Electron** ^39.1.1 - Desktop framework
 - **React** ^18.2.0 - UI library
 - **TypeScript** ^5.3.3 - Type safety
 - **Vite** ^5.0.0 - Fast build tool
 - **Zustand** ^4.4.7 - State management
 - **Axios** ^1.6.2 - HTTP client
-- **simple-peer** ^9.11.1 - WebRTC wrapper
+- **Native WebRTC** - Browser RTCPeerConnection API for audio/video calls
 
 ## License
 
