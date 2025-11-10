@@ -215,6 +215,35 @@ class ApiService {
     await this.client.post(`/chats/${chatId}/leave`);
   }
 
+  // Media
+  async uploadMedia(file: {
+    uri: string;
+    type: string;
+    name: string;
+  }): Promise<{
+    media_url: string;
+    thumbnail_url?: string;
+    file_name: string;
+    mime_type: string;
+    file_size: number;
+    media_type: string;
+  }> {
+    const formData = new FormData();
+    formData.append('file', {
+      uri: file.uri,
+      type: file.type,
+      name: file.name,
+    } as any);
+
+    const response = await this.client.post('/media/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    return response.data;
+  }
+
   // Helper method для проверки авторизации
   async isAuthenticated(): Promise<boolean> {
     const token = await AsyncStorage.getItem('access_token');

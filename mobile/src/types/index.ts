@@ -35,6 +35,9 @@ export interface Message {
   content?: string;
   type: 'text' | 'image' | 'video' | 'file' | 'voice' | 'system';
   media_url?: string;
+  thumbnail_url?: string;
+  file_name?: string;
+  mime_type?: string;
   media_size?: number;
   media_duration?: number;
   created_at: string;
