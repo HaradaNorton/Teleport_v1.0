@@ -217,7 +217,7 @@ class WebRTCService {
   // Process pending ICE candidates
   private async processPendingCandidates() {
     if (this.pendingCandidates.length > 0 && this.peerConnection?.remoteDescription) {
-      console.log(\`Processing \${this.pendingCandidates.length} pending ICE candidates\`);
+      console.log(`Processing ${this.pendingCandidates.length} pending ICE candidates`);
 
       for (const candidate of this.pendingCandidates) {
         try {
