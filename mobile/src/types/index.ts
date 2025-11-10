@@ -67,6 +67,6 @@ export interface MessageListResponse {
 }
 
 export interface WSMessage {
-  type: 'message.new' | 'message.edit' | 'message.delete' | 'message.read' | 'typing' | 'user.online' | 'user.offline';
+  type: 'message.new' | 'message.edit' | 'message.delete' | 'message.read' | 'typing' | 'user.online' | 'user.offline' | 'webrtc.signal' | 'webrtc.offer' | 'webrtc.answer' | 'webrtc.ice-candidate' | 'call.incoming' | 'call.accepted' | 'call.rejected' | 'call.ended' | 'call.answered';
   payload: any;
 }

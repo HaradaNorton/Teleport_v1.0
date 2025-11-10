@@ -52,7 +52,7 @@ class WebRTCService {
       console.log('Local stream obtained:', this.localStream);
 
       // Notify callback
-      if (this.callbacks.onLocalStream) {
+      if (this.callbacks.onLocalStream && this.localStream) {
         this.callbacks.onLocalStream(this.localStream);
       }
 
@@ -60,11 +60,13 @@ class WebRTCService {
       this.peerConnection = new RTCPeerConnection(configuration);
 
       // Add local stream tracks to peer connection
-      this.localStream.getTracks().forEach((track) => {
-        if (this.peerConnection && this.localStream) {
-          this.peerConnection.addTrack(track, this.localStream);
-        }
-      });
+      if (this.localStream) {
+        this.localStream.getTracks().forEach((track) => {
+          if (this.peerConnection && this.localStream) {
+            this.peerConnection.addTrack(track, this.localStream);
+          }
+        });
+      }
 
       // Setup event handlers
       this.setupPeerConnectionHandlers();
@@ -83,7 +85,7 @@ class WebRTCService {
     if (!this.peerConnection) return;
 
     // ICE candidate event
-    this.peerConnection.onicecandidate = (event) => {
+    (this.peerConnection as any).onicecandidate = (event: any) => {
       if (event.candidate && this.callbacks.onIceCandidate) {
         console.log('ICE candidate generated:', event.candidate);
         this.callbacks.onIceCandidate(event.candidate);
@@ -91,18 +93,18 @@ class WebRTCService {
     };
 
     // Track event (remote stream)
-    this.peerConnection.ontrack = (event) => {
+    (this.peerConnection as any).ontrack = (event: any) => {
       console.log('Remote track received:', event.streams);
       if (event.streams && event.streams[0]) {
         this.remoteStream = event.streams[0];
-        if (this.callbacks.onRemoteStream) {
+        if (this.callbacks.onRemoteStream && this.remoteStream) {
           this.callbacks.onRemoteStream(this.remoteStream);
         }
       }
     };
 
     // Connection state change
-    this.peerConnection.onconnectionstatechange = () => {
+    (this.peerConnection as any).onconnectionstatechange = () => {
       const state = this.peerConnection?.connectionState;
       console.log('Connection state changed:', state);
       if (this.callbacks.onConnectionStateChange && state) {
@@ -111,8 +113,8 @@ class WebRTCService {
     };
 
     // ICE connection state change
-    this.peerConnection.oniceconnectionstatechange = () => {
-      const state = this.peerConnection?.iceConnectionState;
+    (this.peerConnection as any).oniceconnectionstatechange = () => {
+      const state = (this.peerConnection as any)?.iceConnectionState;
       console.log('ICE connection state changed:', state);
     };
   }
@@ -134,7 +136,7 @@ class WebRTCService {
       await this.peerConnection.setLocalDescription(offer);
       console.log('Offer created:', offer);
 
-      return offer;
+      return offer as RTCSessionDescription;
     } catch (error) {
       console.error('Failed to create offer:', error);
       throw error;
@@ -159,7 +161,7 @@ class WebRTCService {
       await this.peerConnection.setLocalDescription(answer);
       console.log('Answer created:', answer);
 
-      return answer;
+      return answer as RTCSessionDescription;
     } catch (error) {
       console.error('Failed to handle offer:', error);
       throw error;

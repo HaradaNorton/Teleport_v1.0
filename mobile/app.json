@@ -59,7 +59,8 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "apiUrl": "http://192.168.1.109:8080/api/v1"
+      "apiUrl": "http://192.168.1.109:8080/api/v1",
+      "wsUrl": "ws://192.168.1.109:8080/api/v1/ws"
     }
   }
 }

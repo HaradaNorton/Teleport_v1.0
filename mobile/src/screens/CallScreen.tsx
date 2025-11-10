@@ -257,7 +257,7 @@ export default function CallScreen({ navigation, route }: Props) {
       {/* Video streams for video calls */}
       {callType === 'video' && remoteStream && (
         <RTCView
-          streamURL={remoteStream.toURL()}
+          streamURL={(remoteStream as any).toURL()}
           style={styles.remoteVideo}
           objectFit="cover"
           zOrder={0}
@@ -266,7 +266,7 @@ export default function CallScreen({ navigation, route }: Props) {
 
       {callType === 'video' && localStream && (
         <RTCView
-          streamURL={localStream.toURL()}
+          streamURL={(localStream as any).toURL()}
           style={styles.localVideo}
           objectFit="cover"
           mirror={true}

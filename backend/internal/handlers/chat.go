@@ -305,11 +305,11 @@ func (h *ChatHandler) GetMessages(c *gin.Context) {
 			SELECT user_id FROM message_reads WHERE message_id = $1
 		`, msg.ID)
 		if err == nil {
-			var readByUsers []string
+			var readByUsers []uuid.UUID
 			for readRows.Next() {
 				var userID uuid.UUID
 				if err := readRows.Scan(&userID); err == nil {
-					readByUsers = append(readByUsers, userID.String())
+					readByUsers = append(readByUsers, userID)
 				}
 			}
 			readRows.Close()

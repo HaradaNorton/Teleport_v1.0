@@ -1,7 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import { WSMessage } from '../types';
 
 type MessageHandler = (message: WSMessage) => void;
+
+const WS_URL = Constants.expoConfig?.extra?.wsUrl || 'ws://localhost:8080/api/v1/ws';
 
 class WebSocketService {
   private ws: WebSocket | null = null;
@@ -27,7 +30,7 @@ class WebSocketService {
       }
 
       // Create WebSocket connection
-      const wsUrl = `ws://192.168.1.109:8080/api/v1/ws?token=${token}`;
+      const wsUrl = `${WS_URL}?token=${token}`;
       this.ws = new WebSocket(wsUrl);
       this.isIntentionalClose = false;
 

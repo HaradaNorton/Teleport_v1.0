@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import type {
   AuthResponse,
   User,
@@ -8,7 +9,7 @@ import type {
   Message
 } from '../types';
 
-const API_URL = 'http://192.168.1.109:8080/api/v1';
+const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:8080/api/v1';
 
 class ApiService {
   private client: AxiosInstance;
@@ -110,7 +111,9 @@ class ApiService {
       });
 
       this.accessToken = response.data.access_token;
-      await AsyncStorage.setItem('access_token', this.accessToken);
+      if (this.accessToken) {
+        await AsyncStorage.setItem('access_token', this.accessToken);
+      }
 
       return this.accessToken;
     } catch (error) {

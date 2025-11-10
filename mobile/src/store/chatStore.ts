@@ -349,8 +349,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const callInfo = message.payload as any;
         console.log('Incoming call:', callInfo);
 
-        if (get().onIncomingCall) {
-          get().onIncomingCall(callInfo);
+        const onIncomingCall = get().onIncomingCall;
+        if (onIncomingCall) {
+          onIncomingCall(callInfo);
         }
         break;
 
@@ -359,8 +360,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const signal = message.payload as any;
         console.log('WebRTC signal received:', signal.type);
 
-        if (get().onWebRTCSignal) {
-          get().onWebRTCSignal(signal);
+        const onWebRTCSignal = get().onWebRTCSignal;
+        if (onWebRTCSignal) {
+          onWebRTCSignal(signal);
         }
         break;
 
@@ -371,8 +373,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const statusPayload = message.payload as any;
         console.log('Call status update:', message.type, statusPayload);
 
-        if (get().onCallStatus) {
-          get().onCallStatus({
+        const onCallStatus = get().onCallStatus;
+        if (onCallStatus) {
+          onCallStatus({
             ...statusPayload,
             status: message.type.replace('call.', ''),
           });

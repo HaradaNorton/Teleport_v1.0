@@ -30,19 +30,19 @@ export default function ChatListScreen({ navigation }: Props) {
       headerRight: () => (
         <View style={{ flexDirection: 'row' }}>
           <TouchableOpacity
-            onPress={() => navigation.navigate('SearchUsers')}
+            onPress={() => (navigation as any).navigate('SearchUsers')}
             style={styles.headerButton}
           >
             <Text style={styles.headerButtonText}>New Chat</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => navigation.navigate('NewGroup')}
+            onPress={() => (navigation as any).navigate('NewGroup')}
             style={styles.headerButton}
           >
             <Text style={styles.headerButtonText}>New Group</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => navigation.navigate('NewChannel')}
+            onPress={() => (navigation as any).navigate('NewChannel')}
             style={styles.headerButton}
           >
             <Text style={styles.headerButtonText}>New Channel</Text>

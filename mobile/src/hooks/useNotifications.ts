@@ -28,7 +28,7 @@ export function useNotifications() {
 
         if (chatId) {
           // Навигация в чат
-          navigation.navigate('Chat' as never, { chatId } as never);
+          (navigation as any).navigate('Chat', { chatId });
 
           // Очистка уведомления
           notificationService.dismissNotification(

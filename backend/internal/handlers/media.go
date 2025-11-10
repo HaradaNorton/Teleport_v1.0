@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"fmt"
-	"image"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
