@@ -21,7 +21,7 @@ export interface LoginResponse {
 }
 
 export interface VerifyRequest {
-  user_id: string;
+  phone_number: string;
   code: string;
 }
 

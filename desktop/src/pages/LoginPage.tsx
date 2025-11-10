@@ -6,7 +6,6 @@ export default function LoginPage() {
   const [step, setStep] = useState<'phone' | 'code'>('phone');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [code, setCode] = useState('');
-  const [userId, setUserId] = useState('');
 
   const { login, verify, isLoading, error, clearError } = useAuthStore();
 
@@ -15,8 +14,7 @@ export default function LoginPage() {
     clearError();
 
     try {
-      const result = await login(phoneNumber);
-      setUserId(result.userId);
+      await login(phoneNumber);
       setStep('code');
     } catch (err) {
       console.error('Login failed:', err);
@@ -28,7 +26,7 @@ export default function LoginPage() {
     clearError();
 
     try {
-      await verify(userId, code);
+      await verify(phoneNumber, code);
       // User will be redirected by App.tsx after successful verification
     } catch (err) {
       console.error('Verification failed:', err);

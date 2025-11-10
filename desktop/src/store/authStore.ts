@@ -11,7 +11,7 @@ interface AuthState {
   // Actions
   loadUser: () => Promise<void>;
   login: (phoneNumber: string) => Promise<{ userId: string }>;
-  verify: (userId: string, code: string) => Promise<void>;
+  verify: (phoneNumber: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
   clearError: () => void;
@@ -69,11 +69,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  verify: async (userId: string, code: string) => {
+  verify: async (phoneNumber: string, code: string) => {
     set({ isLoading: true, error: null });
 
     try {
-      const response = await api.verify({ user_id: userId, code });
+      const response = await api.verify({ phone_number: phoneNumber, code });
       set({ user: response.user, isLoading: false });
 
       // Connect WebSocket
