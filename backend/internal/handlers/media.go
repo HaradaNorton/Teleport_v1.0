@@ -27,6 +27,7 @@ func NewMediaHandler(uploadsDir string) *MediaHandler {
 	dirs := []string{
 		filepath.Join(uploadsDir, "images"),
 		filepath.Join(uploadsDir, "videos"),
+		filepath.Join(uploadsDir, "audio"),
 		filepath.Join(uploadsDir, "files"),
 		filepath.Join(uploadsDir, "thumbnails"),
 	}
@@ -77,6 +78,8 @@ func (h *MediaHandler) UploadMedia(c *gin.Context) {
 		subdir = "images"
 	case "video":
 		subdir = "videos"
+	case "voice":
+		subdir = "audio"
 	default:
 		subdir = "files"
 	}
@@ -118,7 +121,7 @@ func (h *MediaHandler) ServeFile(c *gin.Context) {
 	filename := c.Param("filename")
 
 	// Validate subdirectory
-	allowedDirs := []string{"images", "videos", "files", "thumbnails"}
+	allowedDirs := []string{"images", "videos", "audio", "files", "thumbnails"}
 	isValid := false
 	for _, dir := range allowedDirs {
 		if dir == subdir {
@@ -151,7 +154,7 @@ func (h *MediaHandler) DeleteFile(c *gin.Context) {
 	filename := c.Param("filename")
 
 	// Validate subdirectory
-	allowedDirs := []string{"images", "videos", "files", "thumbnails"}
+	allowedDirs := []string{"images", "videos", "audio", "files", "thumbnails"}
 	isValid := false
 	for _, dir := range allowedDirs {
 		if dir == subdir {

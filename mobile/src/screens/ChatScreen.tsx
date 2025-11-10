@@ -22,6 +22,8 @@ import { useChatStore } from '../store/chatStore';
 import { useAuthStore } from '../store/authStore';
 import api from '../services/api';
 import type { Message } from '../types';
+import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
+import VoiceMessagePlayer from '../components/VoiceMessagePlayer';
 
 type Props = {
   navigation: StackNavigationProp<RootStackParamList, 'Chat'>;
@@ -42,6 +44,8 @@ export default function ChatScreen({ navigation, route }: Props) {
 
   const { messages, loadMessages, sendMessage, sendMediaMessage, chats } = useChatStore();
   const { user } = useAuthStore();
+  const { isRecording, recordingDuration, startRecording, stopRecording, cancelRecording } =
+    useVoiceRecorder();
 
   const chatMessages = messages[chatId] || [];
   const currentChat = chats.find((c) => c.chat.id === chatId);
@@ -191,6 +195,53 @@ export default function ChatScreen({ navigation, route }: Props) {
     }
   };
 
+  const handleStartRecording = async () => {
+    const started = await startRecording();
+    if (!started) {
+      return;
+    }
+  };
+
+  const handleStopRecording = async () => {
+    const recordedAudio = await stopRecording();
+    if (!recordedAudio) {
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      // Upload audio file
+      const uploadResult = await api.uploadMedia({
+        uri: recordedAudio.uri,
+        type: 'audio/m4a',
+        name: `voice_${Date.now()}.m4a`,
+      });
+
+      // Send voice message
+      await sendMediaMessage(chatId, {
+        type: 'voice',
+        media_url: uploadResult.media_url,
+        file_name: uploadResult.file_name,
+        mime_type: uploadResult.mime_type,
+        media_size: uploadResult.file_size,
+      });
+
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    } catch (error) {
+      console.error('Failed to send voice message:', error);
+      Alert.alert('Error', 'Failed to send voice message. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleCancelRecording = async () => {
+    await cancelRecording();
+  };
+
   const renderMessage = ({ item }: { item: Message }) => {
     const isMyMessage = item.sender_id === user?.id;
 
@@ -239,6 +290,15 @@ export default function ChatScreen({ navigation, route }: Props) {
             </View>
           )}
 
+          {/* Voice Message */}
+          {item.type === 'voice' && item.media_url && (
+            <VoiceMessagePlayer
+              mediaUrl={item.media_url}
+              duration={item.media_duration}
+              isMyMessage={isMyMessage}
+            />
+          )}
+
           {/* Text content */}
           {item.content && (
             <Text
@@ -284,32 +344,66 @@ export default function ChatScreen({ navigation, route }: Props) {
         }
       />
 
-      <View style={styles.inputContainer}>
-        <TouchableOpacity
-          style={styles.attachButton}
-          onPress={() => setShowAttachMenu(true)}
-        >
-          <Text style={styles.attachIcon}>📎</Text>
-        </TouchableOpacity>
+      {/* Recording UI */}
+      {isRecording && (
+        <View style={styles.recordingContainer}>
+          <TouchableOpacity style={styles.cancelRecordButton} onPress={handleCancelRecording}>
+            <Text style={styles.cancelRecordIcon}>✕</Text>
+          </TouchableOpacity>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Type a message..."
-          placeholderTextColor="#999"
-          value={messageText}
-          onChangeText={setMessageText}
-          multiline
-          maxLength={4096}
-        />
+          <View style={styles.recordingInfo}>
+            <View style={styles.recordingIndicator} />
+            <Text style={styles.recordingTime}>
+              {Math.floor(recordingDuration / 60)}:
+              {(recordingDuration % 60).toString().padStart(2, '0')}
+            </Text>
+          </View>
 
-        <TouchableOpacity
-          style={[styles.sendButton, !messageText.trim() && styles.sendButtonDisabled]}
-          onPress={handleSend}
-          disabled={!messageText.trim()}
-        >
-          <Text style={styles.sendButtonText}>Send</Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={styles.stopRecordButton}
+            onPress={handleStopRecording}
+            disabled={uploading}
+          >
+            {uploading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.stopRecordIcon}>⬆️</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Normal Input UI */}
+      {!isRecording && (
+        <View style={styles.inputContainer}>
+          <TouchableOpacity
+            style={styles.attachButton}
+            onPress={() => setShowAttachMenu(true)}
+          >
+            <Text style={styles.attachIcon}>📎</Text>
+          </TouchableOpacity>
+
+          <TextInput
+            style={styles.input}
+            placeholder="Type a message..."
+            placeholderTextColor="#999"
+            value={messageText}
+            onChangeText={setMessageText}
+            multiline
+            maxLength={4096}
+          />
+
+          {messageText.trim() ? (
+            <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
+              <Text style={styles.sendButtonText}>Send</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.micButton} onPress={handleStartRecording}>
+              <Text style={styles.micIcon}>🎤</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {/* Attach Menu Modal */}
       <Modal
@@ -602,5 +696,67 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  micButton: {
+    backgroundColor: '#0088cc',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  micIcon: {
+    fontSize: 24,
+  },
+  recordingContainer: {
+    flexDirection: 'row',
+    padding: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cancelRecordButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#ff3b30',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelRecordIcon: {
+    fontSize: 24,
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  recordingInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recordingIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#ff3b30',
+    marginRight: 10,
+  },
+  recordingTime: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+  },
+  stopRecordButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#0088cc',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stopRecordIcon: {
+    fontSize: 24,
   },
 });
