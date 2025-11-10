@@ -25,6 +25,7 @@ import type { Message } from '../types';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import VoiceMessagePlayer from '../components/VoiceMessagePlayer';
 import MessageActions from '../components/MessageActions';
+import ChatSelector from '../components/ChatSelector';
 
 type Props = {
   navigation: StackNavigationProp<RootStackParamList, 'Chat'>;
@@ -46,6 +47,8 @@ export default function ChatScreen({ navigation, route }: Props) {
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [editText, setEditText] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
+  const [showChatSelector, setShowChatSelector] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
   const { messages, loadMessages, sendMessage, sendMediaMessage, chats, typingUsers, sendTyping, editMessage, deleteMessage } =
@@ -315,6 +318,40 @@ export default function ChatScreen({ navigation, route }: Props) {
   const handleReply = () => {
     if (selectedMessage) {
       setReplyingTo(selectedMessage);
+    }
+  };
+
+  const handleForward = () => {
+    if (selectedMessage) {
+      setForwardingMessage(selectedMessage);
+      setShowChatSelector(true);
+    }
+  };
+
+  const handleForwardToChat = async (targetChatId: string) => {
+    if (!forwardingMessage) return;
+
+    try {
+      // Forward message to selected chat
+      if (forwardingMessage.type === 'text') {
+        await sendMessage(targetChatId, forwardingMessage.content || '');
+      } else {
+        // Forward media message
+        await sendMediaMessage(targetChatId, {
+          type: forwardingMessage.type as 'image' | 'video' | 'file' | 'voice',
+          media_url: forwardingMessage.media_url || '',
+          thumbnail_url: forwardingMessage.thumbnail_url,
+          file_name: forwardingMessage.file_name || '',
+          mime_type: forwardingMessage.mime_type || '',
+          media_size: forwardingMessage.media_size || 0,
+        });
+      }
+
+      Alert.alert('Success', 'Message forwarded successfully');
+      setForwardingMessage(null);
+    } catch (error) {
+      console.error('Failed to forward message:', error);
+      Alert.alert('Error', 'Failed to forward message. Please try again.');
     }
   };
 
@@ -717,6 +754,7 @@ export default function ChatScreen({ navigation, route }: Props) {
           onReply={handleReply}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          onForward={handleForward}
           isMyMessage={selectedMessage.sender_id === user?.id}
           messageType={selectedMessage.type}
         />
@@ -764,6 +802,15 @@ export default function ChatScreen({ navigation, route }: Props) {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Chat Selector for Forwarding */}
+      <ChatSelector
+        visible={showChatSelector}
+        chats={chats}
+        currentChatId={chatId}
+        onSelect={handleForwardToChat}
+        onClose={() => setShowChatSelector(false)}
+      />
     </KeyboardAvoidingView>
   );
 }

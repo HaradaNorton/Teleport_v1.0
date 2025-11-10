@@ -7,6 +7,7 @@ interface MessageActionsProps {
   onReply: () => void;
   onEdit?: () => void;
   onDelete: () => void;
+  onForward: () => void;
   isMyMessage: boolean;
   messageType: string;
 }
@@ -17,6 +18,7 @@ export default function MessageActions({
   onEdit,
   onDelete,
   onReply,
+  onForward,
   isMyMessage,
   messageType,
 }: MessageActionsProps) {
@@ -58,6 +60,17 @@ export default function MessageActions({
               <Text style={styles.menuText}>✏️ Edit</Text>
             </TouchableOpacity>
           )}
+
+          {/* Forward */}
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
+              onForward();
+              onClose();
+            }}
+          >
+            <Text style={styles.menuText}>➡️ Forward</Text>
+          </TouchableOpacity>
 
           {/* Delete - only for current user's messages */}
           {isMyMessage && (
