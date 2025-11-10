@@ -3,6 +3,7 @@ import type { User } from '../types';
 import api from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useChatStore } from './chatStore';
+import notificationService from '../services/notifications';
 
 interface AuthState {
   user: User | null;
@@ -28,6 +29,14 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       // Connect to WebSocket after successful login
       useChatStore.getState().connectWebSocket();
+
+      // Register for push notifications
+      try {
+        await notificationService.registerForPushNotifications();
+      } catch (error) {
+        console.error('Failed to register for push notifications:', error);
+        // Don't throw error, push notifications are not critical
+      }
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -35,6 +44,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
+    // Unregister push notifications before logout
+    try {
+      await notificationService.unregisterFromServer();
+    } catch (error) {
+      console.error('Failed to unregister push notifications:', error);
+    }
+
     // Disconnect WebSocket before logout
     useChatStore.getState().disconnectWebSocket();
 
@@ -59,6 +75,13 @@ export const useAuthStore = create<AuthState>((set) => ({
 
         // Connect to WebSocket if authenticated
         useChatStore.getState().connectWebSocket();
+
+        // Register for push notifications if authenticated
+        try {
+          await notificationService.registerForPushNotifications();
+        } catch (error) {
+          console.error('Failed to register for push notifications:', error);
+        }
       } else {
         set({ isLoading: false });
       }

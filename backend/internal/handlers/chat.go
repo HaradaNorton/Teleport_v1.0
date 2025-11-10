@@ -10,19 +10,22 @@ import (
 	"github.com/google/uuid"
 	"github.com/teleport/backend/internal/database"
 	"github.com/teleport/backend/internal/models"
+	"github.com/teleport/backend/pkg/notifications"
 )
 
 type ChatHandler struct {
-	db        *database.PostgresDB
-	redis     *database.RedisClient
-	wsHandler *WebSocketHandler
+	db         *database.PostgresDB
+	redis      *database.RedisClient
+	wsHandler  *WebSocketHandler
+	fcmService *notifications.FCMService
 }
 
-func NewChatHandler(db *database.PostgresDB, redis *database.RedisClient, wsHandler *WebSocketHandler) *ChatHandler {
+func NewChatHandler(db *database.PostgresDB, redis *database.RedisClient, wsHandler *WebSocketHandler, fcmService *notifications.FCMService) *ChatHandler {
 	return &ChatHandler{
-		db:        db,
-		redis:     redis,
-		wsHandler: wsHandler,
+		db:         db,
+		redis:      redis,
+		wsHandler:  wsHandler,
+		fcmService: fcmService,
 	}
 }
 
@@ -394,6 +397,23 @@ func (h *ChatHandler) SendMessage(c *gin.Context) {
 	// Broadcast сообщения через WebSocket
 	if h.wsHandler != nil {
 		h.wsHandler.BroadcastMessage(chatID, &message)
+	}
+
+	// Отправка push-уведомления
+	if h.fcmService != nil {
+		// Получаем название чата для уведомления
+		var chatTitle string
+		err = h.db.QueryRow(`SELECT COALESCE(title, '') FROM chats WHERE id = $1`, chatID).Scan(&chatTitle)
+		if err != nil {
+			log.Printf("Failed to get chat title: %v", err)
+		}
+
+		// Отправляем уведомление асинхронно, чтобы не блокировать ответ
+		go func() {
+			if err := h.fcmService.SendMessageNotification(c.Request.Context(), &message, chatTitle); err != nil {
+				log.Printf("Failed to send push notification: %v", err)
+			}
+		}()
 	}
 
 	c.JSON(http.StatusCreated, message)

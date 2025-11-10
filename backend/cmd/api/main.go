@@ -16,6 +16,7 @@ import (
 	"github.com/teleport/backend/internal/handlers"
 	"github.com/teleport/backend/internal/middleware"
 	"github.com/teleport/backend/pkg/auth"
+	"github.com/teleport/backend/pkg/notifications"
 )
 
 func main() {
@@ -74,6 +75,15 @@ func main() {
 	// WebSocket handler (создаем заранее для использования в других handlers)
 	wsHandler := handlers.NewWebSocketHandler(db, redisClient, jwtService)
 
+	// FCM service for push notifications
+	var fcmService *notifications.FCMService
+	if cfg.FCM.Enabled && cfg.FCM.ServerKey != "" {
+		fcmService = notifications.NewFCMService(cfg.FCM.ServerKey, db)
+		log.Println("✅ FCM service initialized")
+	} else {
+		log.Println("⚠️  FCM service disabled (set FCM_ENABLED=true and FCM_SERVER_KEY to enable)")
+	}
+
 	// API routes
 	apiV1 := router.Group(fmt.Sprintf("/api/%s", cfg.Server.APIVersion))
 	{
@@ -101,7 +111,7 @@ func main() {
 			}
 
 			// Chat routes
-			chatHandler := handlers.NewChatHandler(db, redisClient, wsHandler)
+			chatHandler := handlers.NewChatHandler(db, redisClient, wsHandler, fcmService)
 			chats := protected.Group("/chats")
 			{
 				chats.GET("", chatHandler.GetChats)
@@ -129,6 +139,16 @@ func main() {
 				media.POST("/upload", mediaHandler.UploadMedia)
 				media.GET("/files/:subdir/:filename", mediaHandler.ServeFile)
 				media.DELETE("/files/:subdir/:filename", mediaHandler.DeleteFile)
+			}
+
+			// Device token routes
+			if fcmService != nil {
+				deviceHandler := handlers.NewDeviceHandler(fcmService)
+				devices := protected.Group("/devices")
+				{
+					devices.POST("/register", deviceHandler.RegisterToken)
+					devices.POST("/unregister", deviceHandler.UnregisterToken)
+				}
 			}
 		}
 

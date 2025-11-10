@@ -16,6 +16,7 @@ type Config struct {
 	JWT      JWTConfig
 	SMS      SMSConfig
 	Upload   UploadConfig
+	FCM      FCMConfig
 }
 
 type ServerConfig struct {
@@ -60,6 +61,11 @@ type SMSConfig struct {
 type UploadConfig struct {
 	Directory   string
 	MaxFileSize int64
+}
+
+type FCMConfig struct {
+	ServerKey string
+	Enabled   bool
 }
 
 func Load() (*Config, error) {
@@ -108,6 +114,10 @@ func Load() (*Config, error) {
 		Upload: UploadConfig{
 			Directory:   getEnv("UPLOAD_DIR", "./uploads"),
 			MaxFileSize: int64(getEnvAsInt("MAX_UPLOAD_SIZE", 104857600)), // 100MB
+		},
+		FCM: FCMConfig{
+			ServerKey: getEnv("FCM_SERVER_KEY", ""),
+			Enabled:   getEnv("FCM_ENABLED", "false") == "true",
 		},
 	}
 

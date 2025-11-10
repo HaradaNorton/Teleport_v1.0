@@ -250,6 +250,19 @@ class ApiService {
     return response.data;
   }
 
+  // Device tokens (Push Notifications)
+  async registerDeviceToken(data: {
+    token: string;
+    platform: 'ios' | 'android';
+    device_id: string;
+  }): Promise<void> {
+    await this.client.post('/devices/register', data);
+  }
+
+  async unregisterDeviceToken(token: string): Promise<void> {
+    await this.client.post('/devices/unregister', { token });
+  }
+
   // Helper method для проверки авторизации
   async isAuthenticated(): Promise<boolean> {
     const token = await AsyncStorage.getItem('access_token');

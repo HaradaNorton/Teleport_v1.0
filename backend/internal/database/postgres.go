@@ -171,6 +171,22 @@ func (db *PostgresDB) InitSchema() error {
 	);
 
 	CREATE INDEX IF NOT EXISTS idx_contacts_user ON contacts(user_id);
+
+	-- Device tokens table (для push notifications)
+	CREATE TABLE IF NOT EXISTS device_tokens (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		token TEXT NOT NULL,
+		platform VARCHAR(20) NOT NULL CHECK (platform IN ('ios', 'android')),
+		device_id VARCHAR(255),
+		is_active BOOLEAN DEFAULT true,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE(user_id, token)
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_device_tokens_user ON device_tokens(user_id, is_active);
+	CREATE INDEX IF NOT EXISTS idx_device_tokens_token ON device_tokens(token);
 	`
 
 	_, err := db.Exec(schema)
