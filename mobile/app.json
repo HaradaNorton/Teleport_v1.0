@@ -4,13 +4,8 @@
     "slug": "teleport-messenger",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0088cc"
-    },
+    "backgroundColor": "#0088cc",
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -20,14 +15,11 @@
       "buildNumber": "1.0.0",
       "infoPlist": {
         "NSCameraUsageDescription": "Teleport needs access to your camera for video calls",
-        "NSMicrophoneUsageDescription": "Teleport needs access to your microphone for audio and video calls"
+        "NSMicrophoneUsageDescription": "Teleport needs access to your microphone for audio and video calls",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0088cc"
-      },
       "package": "com.teleport.messenger",
       "versionCode": 1,
       "useNextNotificationsApi": true,
@@ -40,7 +32,6 @@
       ]
     },
     "notification": {
-      "icon": "./assets/notification-icon.png",
       "color": "#0088cc",
       "androidMode": "default",
       "androidCollapsedTitle": "New messages"
@@ -49,18 +40,18 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/notification-icon.png",
           "color": "#0088cc",
           "sounds": []
         }
       ]
     ],
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
+    "newArchEnabled": false,
     "extra": {
       "apiUrl": "http://192.168.1.109:8080/api/v1",
-      "wsUrl": "ws://192.168.1.109:8080/api/v1/ws"
+      "wsUrl": "ws://192.168.1.109:8080/api/v1/ws",
+      "eas": {
+        "projectId": "6c00007b-d3f5-438a-8a89-725e0d6eb047"
+      }
     }
   }
 }
