@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { User } from '../types';
 import api from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useChatStore } from './chatStore';
 
 interface AuthState {
   user: User | null;
@@ -24,6 +25,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const response = await api.verifyCode(phoneNumber, code);
       set({ user: response.user, isAuthenticated: true });
+
+      // Connect to WebSocket after successful login
+      useChatStore.getState().connectWebSocket();
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -31,6 +35,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
+    // Disconnect WebSocket before logout
+    useChatStore.getState().disconnectWebSocket();
+
     await api.logout();
     set({ user: null, isAuthenticated: false });
   },
@@ -49,6 +56,9 @@ export const useAuthStore = create<AuthState>((set) => ({
           const user = await api.getMe();
           set({ user, isAuthenticated: true, isLoading: false });
         }
+
+        // Connect to WebSocket if authenticated
+        useChatStore.getState().connectWebSocket();
       } else {
         set({ isLoading: false });
       }

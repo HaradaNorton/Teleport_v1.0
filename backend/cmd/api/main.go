@@ -71,6 +71,9 @@ func main() {
 		})
 	})
 
+	// WebSocket handler (создаем заранее для использования в других handlers)
+	wsHandler := handlers.NewWebSocketHandler(db, redisClient, jwtService)
+
 	// API routes
 	apiV1 := router.Group(fmt.Sprintf("/api/%s", cfg.Server.APIVersion))
 	{
@@ -98,7 +101,7 @@ func main() {
 			}
 
 			// Chat routes
-			chatHandler := handlers.NewChatHandler(db, redisClient)
+			chatHandler := handlers.NewChatHandler(db, redisClient, wsHandler)
 			chats := protected.Group("/chats")
 			{
 				chats.GET("", chatHandler.GetChats)
@@ -130,7 +133,6 @@ func main() {
 		}
 
 		// WebSocket
-		wsHandler := handlers.NewWebSocketHandler(db, redisClient, jwtService)
 		apiV1.GET("/ws", wsHandler.HandleWebSocket)
 	}
 

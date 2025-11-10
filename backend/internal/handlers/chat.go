@@ -13,14 +13,16 @@ import (
 )
 
 type ChatHandler struct {
-	db    *database.PostgresDB
-	redis *database.RedisClient
+	db        *database.PostgresDB
+	redis     *database.RedisClient
+	wsHandler *WebSocketHandler
 }
 
-func NewChatHandler(db *database.PostgresDB, redis *database.RedisClient) *ChatHandler {
+func NewChatHandler(db *database.PostgresDB, redis *database.RedisClient, wsHandler *WebSocketHandler) *ChatHandler {
 	return &ChatHandler{
-		db:    db,
-		redis: redis,
+		db:        db,
+		redis:     redis,
+		wsHandler: wsHandler,
 	}
 }
 
@@ -360,6 +362,19 @@ func (h *ChatHandler) SendMessage(c *gin.Context) {
 		log.Printf("Failed to update unread counts: %v", err)
 	}
 
+	// Получение информации об отправителе
+	var sender models.User
+	err = h.db.QueryRow(`
+		SELECT id, phone_number, name, avatar_url, bio, created_at, updated_at, last_seen, is_online
+		FROM users WHERE id = $1
+	`, userID).Scan(
+		&sender.ID, &sender.PhoneNumber, &sender.Name, &sender.AvatarURL,
+		&sender.Bio, &sender.CreatedAt, &sender.UpdatedAt, &sender.LastSeen, &sender.IsOnline,
+	)
+	if err != nil {
+		log.Printf("Failed to get sender info: %v", err)
+	}
+
 	message := models.Message{
 		ID:            messageID,
 		ChatID:        chatID,
@@ -373,6 +388,12 @@ func (h *ChatHandler) SendMessage(c *gin.Context) {
 		MediaSize:     req.MediaSize,
 		MediaDuration: req.MediaDuration,
 		CreatedAt:     now,
+		Sender:        &sender,
+	}
+
+	// Broadcast сообщения через WebSocket
+	if h.wsHandler != nil {
+		h.wsHandler.BroadcastMessage(chatID, &message)
 	}
 
 	c.JSON(http.StatusCreated, message)

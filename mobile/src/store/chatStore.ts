@@ -1,12 +1,19 @@
 import { create } from 'zustand';
-import type { ChatResponse, Message } from '../types';
+import type { ChatResponse, Message, WSMessage } from '../types';
 import api from '../services/api';
+import websocket from '../services/websocket';
+
+interface TypingUser {
+  userId: string;
+  userName?: string;
+}
 
 interface ChatState {
   chats: ChatResponse[];
   currentChatId: string | null;
   messages: Record<string, Message[]>;
   isLoading: boolean;
+  typingUsers: Record<string, TypingUser[]>; // chatId -> users typing
 
   // Actions
   loadChats: () => Promise<void>;
@@ -25,6 +32,10 @@ interface ChatState {
   ) => Promise<void>;
   addMessage: (message: Message) => void;
   setCurrentChat: (chatId: string | null) => void;
+  connectWebSocket: () => void;
+  disconnectWebSocket: () => void;
+  sendTyping: (chatId: string, typing: boolean) => void;
+  handleWebSocketMessage: (message: WSMessage) => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -32,6 +43,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   currentChatId: null,
   messages: {},
   isLoading: false,
+  typingUsers: {},
 
   loadChats: async () => {
     set({ isLoading: true });
@@ -109,5 +121,97 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   setCurrentChat: (chatId: string | null) => {
     set({ currentChatId: chatId });
+  },
+
+  connectWebSocket: () => {
+    websocket.connect();
+
+    // Subscribe to WebSocket messages
+    websocket.onMessage((message) => {
+      get().handleWebSocketMessage(message);
+    });
+  },
+
+  disconnectWebSocket: () => {
+    websocket.disconnect();
+  },
+
+  sendTyping: (chatId: string, typing: boolean) => {
+    websocket.sendTyping(chatId, typing);
+  },
+
+  handleWebSocketMessage: (message: WSMessage) => {
+    switch (message.type) {
+      case 'message.new':
+        // Add new message to chat
+        const newMessage = message.payload as Message;
+        get().addMessage(newMessage);
+
+        // Update last message in chat list
+        set((state) => ({
+          chats: state.chats.map((chat) =>
+            chat.chat.id === newMessage.chat_id
+              ? { ...chat, last_message: newMessage }
+              : chat
+          ),
+        }));
+        break;
+
+      case 'typing':
+        // Handle typing indicator
+        const typingPayload = message.payload as any;
+        const { chat_id, user_id, typing } = typingPayload;
+
+        set((state) => {
+          const chatTypingUsers = state.typingUsers[chat_id] || [];
+
+          if (typing) {
+            // Add user to typing list
+            if (!chatTypingUsers.find((u) => u.userId === user_id)) {
+              return {
+                typingUsers: {
+                  ...state.typingUsers,
+                  [chat_id]: [...chatTypingUsers, { userId: user_id }],
+                },
+              };
+            }
+          } else {
+            // Remove user from typing list
+            return {
+              typingUsers: {
+                ...state.typingUsers,
+                [chat_id]: chatTypingUsers.filter((u) => u.userId !== user_id),
+              },
+            };
+          }
+
+          return state;
+        });
+        break;
+
+      case 'user.online':
+      case 'user.offline':
+        // Handle online/offline status
+        const { user_id: userId, is_online } = message.payload as any;
+
+        // Update user status in chats
+        set((state) => ({
+          chats: state.chats.map((chat) => {
+            if (chat.members) {
+              return {
+                ...chat,
+                members: chat.members.map((member) =>
+                  member.id === userId ? { ...member, is_online } : member
+                ),
+              };
+            }
+            return chat;
+          }),
+        }));
+        break;
+
+      default:
+        console.log('Unknown WebSocket message type:', message.type);
+    }
   },
 }));

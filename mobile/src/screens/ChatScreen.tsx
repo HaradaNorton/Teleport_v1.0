@@ -42,7 +42,8 @@ export default function ChatScreen({ navigation, route }: Props) {
   } | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
-  const { messages, loadMessages, sendMessage, sendMediaMessage, chats } = useChatStore();
+  const { messages, loadMessages, sendMessage, sendMediaMessage, chats, typingUsers, sendTyping } =
+    useChatStore();
   const { user } = useAuthStore();
   const { isRecording, recordingDuration, startRecording, stopRecording, cancelRecording } =
     useVoiceRecorder();
@@ -50,6 +51,8 @@ export default function ChatScreen({ navigation, route }: Props) {
   const chatMessages = messages[chatId] || [];
   const currentChat = chats.find((c) => c.chat.id === chatId);
   const isGroupChat = currentChat?.chat.type === 'group' || chatType === 'group';
+  const chatTypingUsers = typingUsers[chatId] || [];
+  const typingRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     loadMessages(chatId);
@@ -242,7 +245,41 @@ export default function ChatScreen({ navigation, route }: Props) {
     await cancelRecording();
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
+  const handleTextChange = (text: string) => {
+    setMessageText(text);
+
+    // Send typing indicator
+    if (text.trim().length > 0) {
+      sendTyping(chatId, true);
+
+      // Clear previous timeout
+      if (typingRef.current) {
+        clearTimeout(typingRef.current);
+      }
+
+      // Stop typing after 3 seconds of inactivity
+      typingRef.current = setTimeout(() => {
+        sendTyping(chatId, false);
+      }, 3000);
+    } else {
+      sendTyping(chatId, false);
+      if (typingRef.current) {
+        clearTimeout(typingRef.current);
+      }
+    }
+  };
+
+  // Stop typing when sending message
+  useEffect(() => {
+    return () => {
+      sendTyping(chatId, false);
+      if (typingRef.current) {
+        clearTimeout(typingRef.current);
+      }
+    };
+  }, [chatId]);
+
+  const renderMessage = ({ item }: { item: Message}) => {
     const isMyMessage = item.sender_id === user?.id;
 
     return (
@@ -344,6 +381,17 @@ export default function ChatScreen({ navigation, route }: Props) {
         }
       />
 
+      {/* Typing Indicator */}
+      {chatTypingUsers.length > 0 && (
+        <View style={styles.typingContainer}>
+          <Text style={styles.typingText}>
+            {isGroupChat
+              ? `${chatTypingUsers.length} user(s) typing...`
+              : 'typing...'}
+          </Text>
+        </View>
+      )}
+
       {/* Recording UI */}
       {isRecording && (
         <View style={styles.recordingContainer}>
@@ -388,7 +436,7 @@ export default function ChatScreen({ navigation, route }: Props) {
             placeholder="Type a message..."
             placeholderTextColor="#999"
             value={messageText}
-            onChangeText={setMessageText}
+            onChangeText={handleTextChange}
             multiline
             maxLength={4096}
           />
@@ -758,5 +806,15 @@ const styles = StyleSheet.create({
   },
   stopRecordIcon: {
     fontSize: 24,
+  },
+  typingContainer: {
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    backgroundColor: '#f9f9f9',
+  },
+  typingText: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
   },
 });
