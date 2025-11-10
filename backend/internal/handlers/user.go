@@ -126,9 +126,9 @@ func (h *UserHandler) SearchUsers(c *gin.Context) {
 
 	// Поиск по номеру телефона или имени
 	rows, err := h.db.Query(`
-		SELECT id, phone_number, name, avatar_url, bio, created_at, updated_at, last_seen, is_online
+		SELECT id, phone_number, COALESCE(name, ''), COALESCE(avatar_url, ''), COALESCE(bio, ''), created_at, updated_at, last_seen, is_online
 		FROM users
-		WHERE (phone_number ILIKE $1 OR name ILIKE $1)
+		WHERE (phone_number ILIKE $1 OR COALESCE(name, '') ILIKE $1)
 		  AND id != $2
 		LIMIT 50
 	`, "%"+query+"%", currentUserID)
@@ -176,7 +176,7 @@ func (h *UserHandler) SearchUsers(c *gin.Context) {
 func (h *UserHandler) getUserByID(userID uuid.UUID) (*models.User, error) {
 	var user models.User
 	err := h.db.QueryRow(`
-		SELECT id, phone_number, name, avatar_url, bio, created_at, updated_at, last_seen, is_online
+		SELECT id, phone_number, COALESCE(name, ''), COALESCE(avatar_url, ''), COALESCE(bio, ''), created_at, updated_at, last_seen, is_online
 		FROM users
 		WHERE id = $1
 	`, userID).Scan(

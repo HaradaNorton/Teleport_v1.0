@@ -408,7 +408,7 @@ func (h *ChatHandler) SendMessage(c *gin.Context) {
 	// Получение информации об отправителе
 	var sender models.User
 	err = h.db.QueryRow(`
-		SELECT id, phone_number, name, avatar_url, bio, created_at, updated_at, last_seen, is_online
+		SELECT id, phone_number, COALESCE(name, ''), COALESCE(avatar_url, ''), COALESCE(bio, ''), created_at, updated_at, last_seen, is_online
 		FROM users WHERE id = $1
 	`, userID).Scan(
 		&sender.ID, &sender.PhoneNumber, &sender.Name, &sender.AvatarURL,
@@ -750,7 +750,7 @@ func (h *ChatHandler) GetChatMembers(c *gin.Context) {
 	}
 
 	rows, err := h.db.Query(`
-		SELECT u.id, u.phone_number, u.name, u.avatar_url, u.bio, u.is_online,
+		SELECT u.id, u.phone_number, COALESCE(u.name, ''), COALESCE(u.avatar_url, ''), COALESCE(u.bio, ''), u.is_online,
 		       cm.role, cm.joined_at
 		FROM chat_members cm
 		INNER JOIN users u ON cm.user_id = u.id

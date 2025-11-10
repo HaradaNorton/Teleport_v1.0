@@ -90,7 +90,7 @@ func (h *CallHandler) InitiateCall(c *gin.Context) {
 	// Получаем информацию о звонящем
 	var caller models.User
 	err = h.db.QueryRow(`
-		SELECT id, phone_number, name, avatar_url, bio
+		SELECT id, phone_number, COALESCE(name, ''), COALESCE(avatar_url, ''), COALESCE(bio, '')
 		FROM users WHERE id = $1
 	`, callerUUID).Scan(
 		&caller.ID,
@@ -391,8 +391,8 @@ func (h *CallHandler) GetCallHistory(c *gin.Context) {
 	rows, err := h.db.Query(`
 		SELECT c.id, c.chat_id, c.caller_id, c.receiver_id, c.type, c.status,
 			   c.started_at, c.answered_at, c.ended_at, c.duration, c.created_at,
-			   caller.id, caller.phone_number, caller.name, caller.avatar_url,
-			   receiver.id, receiver.phone_number, receiver.name, receiver.avatar_url
+			   caller.id, caller.phone_number, COALESCE(caller.name, ''), COALESCE(caller.avatar_url, ''),
+			   receiver.id, receiver.phone_number, COALESCE(receiver.name, ''), COALESCE(receiver.avatar_url, '')
 		FROM calls c
 		JOIN users caller ON c.caller_id = caller.id
 		JOIN users receiver ON c.receiver_id = receiver.id

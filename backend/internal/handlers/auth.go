@@ -214,7 +214,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 func (h *AuthHandler) findOrCreateUser(phoneNumber string) (*models.User, bool, error) {
 	var user models.User
 	err := h.db.QueryRow(`
-		SELECT id, phone_number, name, avatar_url, bio, created_at, updated_at, last_seen, is_online
+		SELECT id, phone_number, COALESCE(name, ''), COALESCE(avatar_url, ''), COALESCE(bio, ''), created_at, updated_at, last_seen, is_online
 		FROM users
 		WHERE phone_number = $1
 	`, phoneNumber).Scan(
