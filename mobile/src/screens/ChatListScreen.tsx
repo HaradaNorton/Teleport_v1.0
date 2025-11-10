@@ -42,6 +42,12 @@ export default function ChatListScreen({ navigation }: Props) {
             <Text style={styles.headerButtonText}>New Group</Text>
           </TouchableOpacity>
           <TouchableOpacity
+            onPress={() => navigation.navigate('NewChannel')}
+            style={styles.headerButton}
+          >
+            <Text style={styles.headerButtonText}>New Channel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={() => navigation.navigate('Profile')}
             style={styles.headerButton}
           >
@@ -55,6 +61,7 @@ export default function ChatListScreen({ navigation }: Props) {
   const renderChatItem = ({ item }: { item: ChatResponse }) => {
     const chatTitle = item.chat.title || 'Unknown';
     const lastMessage = item.last_message?.content || 'No messages yet';
+    const isChannel = item.chat.type === 'channel';
 
     return (
       <TouchableOpacity
@@ -63,18 +70,26 @@ export default function ChatListScreen({ navigation }: Props) {
           navigation.navigate('Chat', {
             chatId: item.chat.id,
             chatTitle,
+            chatType: item.chat.type,
           })
         }
       >
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>
-            {chatTitle.charAt(0).toUpperCase()}
+            {isChannel ? '📢' : chatTitle.charAt(0).toUpperCase()}
           </Text>
         </View>
 
         <View style={styles.chatInfo}>
           <View style={styles.chatHeader}>
-            <Text style={styles.chatTitle}>{chatTitle}</Text>
+            <View style={styles.chatTitleContainer}>
+              <Text style={styles.chatTitle}>{chatTitle}</Text>
+              {isChannel && (
+                <View style={styles.channelBadge}>
+                  <Text style={styles.channelBadgeText}>Channel</Text>
+                </View>
+              )}
+            </View>
             {item.chat.last_message_at && (
               <Text style={styles.chatTime}>
                 {new Date(item.chat.last_message_at).toLocaleTimeString('en-US', {
@@ -179,10 +194,27 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 5,
   },
+  chatTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
   chatTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#000',
+  },
+  channelBadge: {
+    backgroundColor: '#e3f2fd',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 8,
+  },
+  channelBadgeText: {
+    color: '#0088cc',
+    fontSize: 10,
+    fontWeight: '600',
   },
   chatTime: {
     fontSize: 12,

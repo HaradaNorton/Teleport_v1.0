@@ -157,7 +157,7 @@ class ApiService {
   }
 
   async createChat(data: {
-    type: 'personal' | 'group';
+    type: 'personal' | 'group' | 'channel';
     user_ids: string[];
     title?: string;
   }): Promise<{ chat_id: string }> {
@@ -227,6 +227,15 @@ class ApiService {
 
   async leaveChat(chatId: string): Promise<void> {
     await this.client.post(`/chats/${chatId}/leave`);
+  }
+
+  // Channel operations
+  async subscribeToChannel(chatId: string): Promise<void> {
+    await this.client.post(`/chats/${chatId}/subscribe`);
+  }
+
+  async unsubscribeFromChannel(chatId: string): Promise<void> {
+    await this.client.post(`/chats/${chatId}/unsubscribe`);
   }
 
   // Media

@@ -130,6 +130,10 @@ func main() {
 				chats.DELETE("/:id/members/:userId", chatHandler.RemoveChatMember)
 				chats.PUT("/:id/members/:userId/role", chatHandler.UpdateMemberRole)
 				chats.POST("/:id/leave", chatHandler.LeaveChat)
+
+				// Channel operations
+				chats.POST("/:id/subscribe", chatHandler.SubscribeToChannel)
+				chats.POST("/:id/unsubscribe", chatHandler.UnsubscribeFromChannel)
 			}
 
 			// Media routes

@@ -342,6 +342,28 @@ func (h *ChatHandler) SendMessage(c *gin.Context) {
 		return
 	}
 
+	// Проверка прав для каналов - только admin/owner могут постить
+	var chatType string
+	var memberRole string
+	err = h.db.QueryRow(`
+		SELECT c.type, cm.role
+		FROM chats c
+		INNER JOIN chat_members cm ON c.id = cm.chat_id
+		WHERE c.id = $1 AND cm.user_id = $2 AND cm.left_at IS NULL
+	`, chatID, userID).Scan(&chatType, &memberRole)
+
+	if err != nil {
+		log.Printf("Failed to get chat type and role: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to verify permissions"})
+		return
+	}
+
+	// В каналах только owner и admin могут отправлять сообщения
+	if chatType == string(models.ChatTypeChannel) && memberRole != "owner" && memberRole != "admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "only admins can post in channels"})
+		return
+	}
+
 	var req models.SendMessageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
@@ -571,6 +593,115 @@ func (h *ChatHandler) MarkAsRead(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "marked as read"})
+}
+
+// SubscribeToChannel подписывает пользователя на канал
+func (h *ChatHandler) SubscribeToChannel(c *gin.Context) {
+	chatIDStr := c.Param("id")
+	chatID, err := uuid.Parse(chatIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid chat id"})
+		return
+	}
+
+	userID := c.MustGet("user_id").(uuid.UUID)
+
+	// Проверка что это канал
+	var chatType string
+	err = h.db.QueryRow(`SELECT type FROM chats WHERE id = $1`, chatID).Scan(&chatType)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "chat not found"})
+		return
+	}
+
+	if chatType != string(models.ChatTypeChannel) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "can only subscribe to channels"})
+		return
+	}
+
+	// Проверка что пользователь еще не подписан
+	var memberID uuid.UUID
+	err = h.db.QueryRow(`
+		SELECT id FROM chat_members
+		WHERE chat_id = $1 AND user_id = $2 AND left_at IS NULL
+	`, chatID, userID).Scan(&memberID)
+
+	if err == nil {
+		c.JSON(http.StatusOK, gin.H{"message": "already subscribed"})
+		return
+	}
+
+	// Подписка на канал
+	_, err = h.db.Exec(`
+		INSERT INTO chat_members (chat_id, user_id, role, joined_at)
+		VALUES ($1, $2, 'member', CURRENT_TIMESTAMP)
+	`, chatID, userID)
+
+	if err != nil {
+		log.Printf("Failed to subscribe to channel: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to subscribe"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "subscribed successfully"})
+}
+
+// UnsubscribeFromChannel отписывает пользователя от канала
+func (h *ChatHandler) UnsubscribeFromChannel(c *gin.Context) {
+	chatIDStr := c.Param("id")
+	chatID, err := uuid.Parse(chatIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid chat id"})
+		return
+	}
+
+	userID := c.MustGet("user_id").(uuid.UUID)
+
+	// Проверка что это канал
+	var chatType string
+	err = h.db.QueryRow(`SELECT type FROM chats WHERE id = $1`, chatID).Scan(&chatType)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "chat not found"})
+		return
+	}
+
+	if chatType != string(models.ChatTypeChannel) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "can only unsubscribe from channels"})
+		return
+	}
+
+	// Получение роли пользователя
+	var memberRole string
+	err = h.db.QueryRow(`
+		SELECT role FROM chat_members
+		WHERE chat_id = $1 AND user_id = $2 AND left_at IS NULL
+	`, chatID, userID).Scan(&memberRole)
+
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not subscribed"})
+		return
+	}
+
+	// Владелец не может отписаться
+	if memberRole == "owner" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "owner cannot unsubscribe"})
+		return
+	}
+
+	// Отписка от канала (soft delete)
+	_, err = h.db.Exec(`
+		UPDATE chat_members
+		SET left_at = CURRENT_TIMESTAMP
+		WHERE chat_id = $1 AND user_id = $2
+	`, chatID, userID)
+
+	if err != nil {
+		log.Printf("Failed to unsubscribe from channel: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to unsubscribe"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "unsubscribed successfully"})
 }
 
 // Helper functions

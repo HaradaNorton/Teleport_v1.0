@@ -10,6 +10,7 @@ import ChatScreen from '../screens/ChatScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SearchUsersScreen from '../screens/SearchUsersScreen';
 import NewGroupScreen from '../screens/NewGroupScreen';
+import NewChannelScreen from '../screens/NewChannelScreen';
 import GroupInfoScreen from '../screens/GroupInfoScreen';
 import type { User } from '../types';
 
@@ -21,6 +22,7 @@ export type RootStackParamList = {
   Profile: undefined;
   SearchUsers: { mode?: 'new_chat' | 'add_to_group'; chatId?: string } | undefined;
   NewGroup: { selectedUsers?: User[] };
+  NewChannel: undefined;
   GroupInfo: { chatId: string; chatTitle?: string };
 };
 
@@ -75,6 +77,11 @@ export default function AppNavigator() {
               name="NewGroup"
               component={NewGroupScreen}
               options={{ title: 'New Group' }}
+            />
+            <Stack.Screen
+              name="NewChannel"
+              component={NewChannelScreen}
+              options={{ title: 'New Channel' }}
             />
             <Stack.Screen
               name="GroupInfo"

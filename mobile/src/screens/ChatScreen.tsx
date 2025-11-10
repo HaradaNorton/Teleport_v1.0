@@ -49,6 +49,8 @@ export default function ChatScreen({ navigation, route }: Props) {
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
   const [showChatSelector, setShowChatSelector] = useState(false);
+  const [memberRole, setMemberRole] = useState<string | null>(null);
+  const [isSubscribed, setIsSubscribed] = useState(true);
   const flatListRef = useRef<FlatList>(null);
 
   const { messages, loadMessages, sendMessage, sendMediaMessage, chats, typingUsers, sendTyping, editMessage, deleteMessage } =
@@ -60,6 +62,7 @@ export default function ChatScreen({ navigation, route }: Props) {
   const chatMessages = messages[chatId] || [];
   const currentChat = chats.find((c) => c.chat.id === chatId);
   const isGroupChat = currentChat?.chat.type === 'group' || chatType === 'group';
+  const isChannel = currentChat?.chat.type === 'channel' || chatType === 'channel';
   const chatTypingUsers = typingUsers[chatId] || [];
   const typingRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -68,7 +71,29 @@ export default function ChatScreen({ navigation, route }: Props) {
 
     // Mark messages as read when opening chat
     markChatMessagesAsRead();
+
+    // Fetch channel member role if it's a channel
+    if (isChannel) {
+      fetchMemberRole();
+    }
   }, [chatId]);
+
+  const fetchMemberRole = async () => {
+    try {
+      const response = await api.getChatMembers(chatId);
+      const myMembership = response.members.find((m: any) => m.user_id === user?.id);
+
+      if (myMembership) {
+        setMemberRole(myMembership.role || 'member');
+        setIsSubscribed(true);
+      } else {
+        setIsSubscribed(false);
+        setMemberRole(null);
+      }
+    } catch (error) {
+      console.error('Failed to fetch member role:', error);
+    }
+  };
 
   const markChatMessagesAsRead = async () => {
     const chatMessages = messages[chatId] || [];
@@ -355,6 +380,45 @@ export default function ChatScreen({ navigation, route }: Props) {
     }
   };
 
+  const handleSubscribeToChannel = async () => {
+    try {
+      await api.subscribeToChannel(chatId);
+      setIsSubscribed(true);
+      setMemberRole('member');
+      Alert.alert('Success', 'You have subscribed to this channel');
+      await loadMessages(chatId); // Reload to see if there are any messages
+    } catch (error: any) {
+      console.error('Failed to subscribe:', error);
+      Alert.alert('Error', error?.response?.data?.error || 'Failed to subscribe to channel');
+    }
+  };
+
+  const handleUnsubscribeFromChannel = async () => {
+    Alert.alert(
+      'Unsubscribe',
+      'Are you sure you want to unsubscribe from this channel?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unsubscribe',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.unsubscribeFromChannel(chatId);
+              setIsSubscribed(false);
+              setMemberRole(null);
+              Alert.alert('Success', 'You have unsubscribed from this channel');
+              navigation.goBack();
+            } catch (error: any) {
+              console.error('Failed to unsubscribe:', error);
+              Alert.alert('Error', error?.response?.data?.error || 'Failed to unsubscribe from channel');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleEdit = () => {
     if (selectedMessage && selectedMessage.type === 'text') {
       setEditingMessage(selectedMessage);
@@ -634,8 +698,36 @@ export default function ChatScreen({ navigation, route }: Props) {
         </View>
       )}
 
-      {/* Normal Input UI */}
-      {!isRecording && (
+      {/* Channel: Not Subscribed */}
+      {isChannel && !isSubscribed && !isRecording && (
+        <View style={styles.channelInfoContainer}>
+          <Text style={styles.channelInfoTitle}>📢 Channel</Text>
+          <Text style={styles.channelInfoText}>
+            Subscribe to this channel to receive updates
+          </Text>
+          <TouchableOpacity style={styles.subscribeButton} onPress={handleSubscribeToChannel}>
+            <Text style={styles.subscribeButtonText}>Subscribe</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Channel: Regular Member (can't post) */}
+      {isChannel && isSubscribed && memberRole === 'member' && !isRecording && (
+        <View style={styles.channelInfoContainer}>
+          <Text style={styles.channelInfoText}>
+            📢 Only admins can post in this channel
+          </Text>
+          <TouchableOpacity
+            style={styles.unsubscribeButton}
+            onPress={handleUnsubscribeFromChannel}
+          >
+            <Text style={styles.unsubscribeButtonText}>Unsubscribe</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Normal Input UI (for non-channels or channel admins/owners) */}
+      {!isRecording && (!isChannel || (isChannel && (memberRole === 'admin' || memberRole === 'owner'))) && (
         <View style={styles.inputContainer}>
           <TouchableOpacity
             style={styles.attachButton}
@@ -1245,5 +1337,49 @@ const styles = StyleSheet.create({
   },
   repliedTextTheir: {
     color: '#666',
+  },
+  channelInfoContainer: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    backgroundColor: '#f9f9f9',
+    alignItems: 'center',
+  },
+  channelInfoTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 8,
+  },
+  channelInfoText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  subscribeButton: {
+    backgroundColor: '#0088cc',
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 20,
+    minWidth: 150,
+    alignItems: 'center',
+  },
+  subscribeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  unsubscribeButton: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  unsubscribeButtonText: {
+    color: '#666',
+    fontSize: 14,
   },
 });
