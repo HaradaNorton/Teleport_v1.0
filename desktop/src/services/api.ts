@@ -91,7 +91,7 @@ class APIService {
 
   // Auth endpoints
   async login(data: LoginRequest): Promise<LoginResponse> {
-    const response = await this.client.post('/auth/login', data);
+    const response = await this.client.post('/auth/send-code', data);
     return response.data;
   }
 
