@@ -90,10 +90,10 @@ export default function LoginPage() {
               <input
                 id="code"
                 type="text"
-                placeholder="000000"
+                placeholder="12345"
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                maxLength={6}
+                maxLength={5}
                 disabled={isLoading}
                 required
                 autoFocus
@@ -102,7 +102,7 @@ export default function LoginPage() {
 
             {error && <div className="error-message">{error}</div>}
 
-            <button type="submit" disabled={isLoading || code.length !== 6} className="btn-primary">
+            <button type="submit" disabled={isLoading || code.length !== 5} className="btn-primary">
               {isLoading ? 'Verifying...' : 'Verify'}
             </button>
 
