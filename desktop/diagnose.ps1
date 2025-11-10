@@ -41,7 +41,7 @@ try {
         Write-Host "   Process ID: $($listener.OwningProcess)" -ForegroundColor Gray
     } else {
         Write-Host "   ❌ Nothing is listening on port 8080" -ForegroundColor Red
-        Write-Host "   You need to start the backend: cd backend && go run cmd/api/main.go" -ForegroundColor Yellow
+        Write-Host "   You need to start the backend: cd backend; go run cmd/api/main.go" -ForegroundColor Yellow
         $ErrorCount++
     }
 } catch {
