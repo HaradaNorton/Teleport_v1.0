@@ -25,6 +25,9 @@ type Message struct {
 	Content       string       `json:"content,omitempty"`
 	Type          MessageType  `json:"type"`
 	MediaURL      string       `json:"media_url,omitempty"`
+	ThumbnailURL  string       `json:"thumbnail_url,omitempty"`
+	FileName      string       `json:"file_name,omitempty"`
+	MimeType      string       `json:"mime_type,omitempty"`
 	MediaSize     int          `json:"media_size,omitempty"`
 	MediaDuration int          `json:"media_duration,omitempty"`
 	CreatedAt     time.Time    `json:"created_at"`
@@ -48,6 +51,9 @@ type SendMessageRequest struct {
 	Type          MessageType `json:"type" binding:"required"`
 	ReplyToID     *uuid.UUID  `json:"reply_to_id,omitempty"`
 	MediaURL      string      `json:"media_url,omitempty"`
+	ThumbnailURL  string      `json:"thumbnail_url,omitempty"`
+	FileName      string      `json:"file_name,omitempty"`
+	MimeType      string      `json:"mime_type,omitempty"`
 	MediaSize     int         `json:"media_size,omitempty"`
 	MediaDuration int         `json:"media_duration,omitempty"`
 }

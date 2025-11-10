@@ -218,7 +218,8 @@ func (h *ChatHandler) GetMessages(c *gin.Context) {
 
 	rows, err := h.db.Query(`
 		SELECT m.id, m.chat_id, m.sender_id, m.reply_to_id, m.content, m.type,
-		       m.media_url, m.media_size, m.media_duration, m.created_at, m.edited_at, m.deleted_at,
+		       m.media_url, m.thumbnail_url, m.file_name, m.mime_type, m.media_size, m.media_duration,
+		       m.created_at, m.edited_at, m.deleted_at,
 		       u.id, u.phone_number, u.name, u.avatar_url
 		FROM messages m
 		INNER JOIN users u ON m.sender_id = u.id
@@ -238,7 +239,8 @@ func (h *ChatHandler) GetMessages(c *gin.Context) {
 	for rows.Next() {
 		var msg models.Message
 		var sender models.User
-		var replyToID sql.NullString
+		var replyToID, thumbnailURL, fileName, mimeType sql.NullString
+		var mediaSize, mediaDuration sql.NullInt32
 		var editedAt, deletedAt sql.NullTime
 
 		err := rows.Scan(
@@ -249,8 +251,11 @@ func (h *ChatHandler) GetMessages(c *gin.Context) {
 			&msg.Content,
 			&msg.Type,
 			&msg.MediaURL,
-			&msg.MediaSize,
-			&msg.MediaDuration,
+			&thumbnailURL,
+			&fileName,
+			&mimeType,
+			&mediaSize,
+			&mediaDuration,
 			&msg.CreatedAt,
 			&editedAt,
 			&deletedAt,
@@ -265,6 +270,21 @@ func (h *ChatHandler) GetMessages(c *gin.Context) {
 			continue
 		}
 
+		if thumbnailURL.Valid {
+			msg.ThumbnailURL = thumbnailURL.String
+		}
+		if fileName.Valid {
+			msg.FileName = fileName.String
+		}
+		if mimeType.Valid {
+			msg.MimeType = mimeType.String
+		}
+		if mediaSize.Valid {
+			msg.MediaSize = int(mediaSize.Int32)
+		}
+		if mediaDuration.Valid {
+			msg.MediaDuration = int(mediaDuration.Int32)
+		}
 		if editedAt.Valid {
 			msg.EditedAt = &editedAt.Time
 		}
@@ -309,9 +329,9 @@ func (h *ChatHandler) SendMessage(c *gin.Context) {
 	now := time.Now()
 
 	_, err = h.db.Exec(`
-		INSERT INTO messages (id, chat_id, sender_id, reply_to_id, content, type, media_url, media_size, media_duration, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-	`, messageID, chatID, userID, req.ReplyToID, req.Content, req.Type, req.MediaURL, req.MediaSize, req.MediaDuration, now)
+		INSERT INTO messages (id, chat_id, sender_id, reply_to_id, content, type, media_url, thumbnail_url, file_name, mime_type, media_size, media_duration, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+	`, messageID, chatID, userID, req.ReplyToID, req.Content, req.Type, req.MediaURL, req.ThumbnailURL, req.FileName, req.MimeType, req.MediaSize, req.MediaDuration, now)
 
 	if err != nil {
 		log.Printf("Failed to send message: %v", err)
@@ -347,6 +367,9 @@ func (h *ChatHandler) SendMessage(c *gin.Context) {
 		Content:       req.Content,
 		Type:          req.Type,
 		MediaURL:      req.MediaURL,
+		ThumbnailURL:  req.ThumbnailURL,
+		FileName:      req.FileName,
+		MimeType:      req.MimeType,
 		MediaSize:     req.MediaSize,
 		MediaDuration: req.MediaDuration,
 		CreatedAt:     now,

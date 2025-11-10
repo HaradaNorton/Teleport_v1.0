@@ -122,6 +122,9 @@ func (db *PostgresDB) InitSchema() error {
 		content TEXT,
 		type VARCHAR(20) NOT NULL DEFAULT 'text' CHECK (type IN ('text', 'image', 'video', 'file', 'voice', 'system')),
 		media_url VARCHAR(500),
+		thumbnail_url VARCHAR(500),
+		file_name VARCHAR(255),
+		mime_type VARCHAR(100),
 		media_size INTEGER,
 		media_duration INTEGER,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -131,6 +134,20 @@ func (db *PostgresDB) InitSchema() error {
 
 	CREATE INDEX IF NOT EXISTS idx_messages_chat ON messages(chat_id, created_at DESC);
 	CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id);
+
+	-- Add new columns if they don't exist (for existing databases)
+	DO $$
+	BEGIN
+		IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='messages' AND column_name='thumbnail_url') THEN
+			ALTER TABLE messages ADD COLUMN thumbnail_url VARCHAR(500);
+		END IF;
+		IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='messages' AND column_name='file_name') THEN
+			ALTER TABLE messages ADD COLUMN file_name VARCHAR(255);
+		END IF;
+		IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='messages' AND column_name='mime_type') THEN
+			ALTER TABLE messages ADD COLUMN mime_type VARCHAR(100);
+		END IF;
+	END $$;
 
 	-- Message reads table (кто прочитал сообщение)
 	CREATE TABLE IF NOT EXISTS message_reads (

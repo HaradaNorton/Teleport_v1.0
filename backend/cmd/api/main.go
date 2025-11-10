@@ -47,6 +47,12 @@ func main() {
 	// JWT сервис
 	jwtService := auth.NewJWTService(cfg)
 
+	// Создание директории для загрузок
+	uploadsDir := "./uploads"
+	if err := os.MkdirAll(uploadsDir, 0755); err != nil {
+		log.Fatalf("Failed to create uploads directory: %v", err)
+	}
+
 	// Настройка Gin
 	if cfg.Server.Env == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -111,6 +117,15 @@ func main() {
 				chats.DELETE("/:id/members/:userId", chatHandler.RemoveChatMember)
 				chats.PUT("/:id/members/:userId/role", chatHandler.UpdateMemberRole)
 				chats.POST("/:id/leave", chatHandler.LeaveChat)
+			}
+
+			// Media routes
+			mediaHandler := handlers.NewMediaHandler(uploadsDir)
+			media := protected.Group("/media")
+			{
+				media.POST("/upload", mediaHandler.UploadMedia)
+				media.GET("/files/:subdir/:filename", mediaHandler.ServeFile)
+				media.DELETE("/files/:subdir/:filename", mediaHandler.DeleteFile)
 			}
 		}
 
