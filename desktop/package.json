@@ -11,7 +11,12 @@
     "build:electron": "electron-builder",
     "package": "npm run build && npm run build:electron"
   },
-  "keywords": ["electron", "react", "messenger", "webrtc"],
+  "keywords": [
+    "electron",
+    "react",
+    "messenger",
+    "webrtc"
+  ],
   "author": "Teleport Team",
   "license": "MIT",
   "dependencies": {
@@ -19,19 +24,18 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.20.0",
-    "zustand": "^4.4.7",
-    "simple-peer": "^9.11.1"
+    "simple-peer": "^9.11.1",
+    "zustand": "^4.4.7"
   },
   "devDependencies": {
+    "@types/node": "^20.10.0",
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.18",
-    "@types/node": "^20.10.0",
     "@vitejs/plugin-react": "^4.2.1",
-    "electron": "^28.0.0",
+    "concurrently": "^8.2.2",
     "electron-builder": "^24.9.1",
     "typescript": "^5.3.3",
     "vite": "^5.0.0",
-    "concurrently": "^8.2.2",
     "wait-on": "^7.2.0"
   },
   "build": {
@@ -46,15 +50,22 @@
       "output": "release"
     },
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "icon": "build/icon.ico"
     },
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "icon": "build/icon.icns"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "icon": "build/icon.png"
     }
   }
