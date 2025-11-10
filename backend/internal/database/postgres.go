@@ -187,6 +187,26 @@ func (db *PostgresDB) InitSchema() error {
 
 	CREATE INDEX IF NOT EXISTS idx_device_tokens_user ON device_tokens(user_id, is_active);
 	CREATE INDEX IF NOT EXISTS idx_device_tokens_token ON device_tokens(token);
+
+	-- Calls table (история звонков)
+	CREATE TABLE IF NOT EXISTS calls (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		chat_id UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+		caller_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		receiver_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		type VARCHAR(20) NOT NULL CHECK (type IN ('audio', 'video')),
+		status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'ringing', 'accepted', 'rejected', 'missed', 'ended', 'failed')),
+		started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		answered_at TIMESTAMP,
+		ended_at TIMESTAMP,
+		duration INTEGER DEFAULT 0,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_calls_chat ON calls(chat_id, created_at DESC);
+	CREATE INDEX IF NOT EXISTS idx_calls_caller ON calls(caller_id);
+	CREATE INDEX IF NOT EXISTS idx_calls_receiver ON calls(receiver_id);
+	CREATE INDEX IF NOT EXISTS idx_calls_status ON calls(status);
 	`
 
 	_, err := db.Exec(schema)

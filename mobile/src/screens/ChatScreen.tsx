@@ -112,7 +112,8 @@ export default function ChatScreen({ navigation, route }: Props) {
   };
 
   React.useLayoutEffect(() => {
-    if (isGroupChat) {
+    if (isGroupChat || isChannel) {
+      // Groups and channels show Info button
       navigation.setOptions({
         headerRight: () => (
           <TouchableOpacity
@@ -128,8 +129,90 @@ export default function ChatScreen({ navigation, route }: Props) {
           </TouchableOpacity>
         ),
       });
+    } else {
+      // Personal chats show call buttons
+      navigation.setOptions({
+        headerRight: () => (
+          <View style={{ flexDirection: 'row', marginRight: 15 }}>
+            <TouchableOpacity onPress={handleInitiateAudioCall} style={{ marginRight: 20 }}>
+              <Text style={{ fontSize: 24 }}>📞</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleInitiateVideoCall}>
+              <Text style={{ fontSize: 24 }}>📹</Text>
+            </TouchableOpacity>
+          </View>
+        ),
+      });
     }
-  }, [navigation, isGroupChat, chatId, chatTitle]);
+  }, [navigation, isGroupChat, isChannel, chatId, chatTitle]);
+
+  const handleInitiateAudioCall = async () => {
+    try {
+      // Get receiver ID (the other person in personal chat)
+      const response = await api.getChatMembers(chatId);
+      const receiver = response.members.find((m: any) => m.user_id !== user?.id);
+
+      if (!receiver) {
+        Alert.alert('Error', 'Could not find call recipient');
+        return;
+      }
+
+      const result = await api.initiateCall({
+        receiver_id: receiver.user_id,
+        chat_id: chatId,
+        type: 'audio',
+      });
+
+      navigation.navigate('Call', {
+        callId: result.call_id,
+        callType: 'audio',
+        isIncoming: false,
+        callerInfo: {
+          id: receiver.user_id,
+          name: receiver.user?.name,
+          phone_number: receiver.user?.phone_number || '',
+          avatar_url: receiver.user?.avatar_url,
+        },
+      });
+    } catch (error: any) {
+      console.error('Failed to initiate call:', error);
+      Alert.alert('Error', 'Failed to initiate call');
+    }
+  };
+
+  const handleInitiateVideoCall = async () => {
+    try {
+      // Get receiver ID (the other person in personal chat)
+      const response = await api.getChatMembers(chatId);
+      const receiver = response.members.find((m: any) => m.user_id !== user?.id);
+
+      if (!receiver) {
+        Alert.alert('Error', 'Could not find call recipient');
+        return;
+      }
+
+      const result = await api.initiateCall({
+        receiver_id: receiver.user_id,
+        chat_id: chatId,
+        type: 'video',
+      });
+
+      navigation.navigate('Call', {
+        callId: result.call_id,
+        callType: 'video',
+        isIncoming: false,
+        callerInfo: {
+          id: receiver.user_id,
+          name: receiver.user?.name,
+          phone_number: receiver.user?.phone_number || '',
+          avatar_url: receiver.user?.avatar_url,
+        },
+      });
+    } catch (error: any) {
+      console.error('Failed to initiate video call:', error);
+      Alert.alert('Error', 'Failed to initiate video call');
+    }
+  };
 
   const handleSend = async () => {
     if (!messageText.trim()) return;

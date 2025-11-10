@@ -253,6 +253,8 @@ func (ws *WebSocketHandler) handleIncomingMessage(client *Client, data []byte) {
 	case models.WSMessageTypeNew:
 		// Сообщения обрабатываются через REST API
 		// WebSocket только для уведомлений
+	case "webrtc.signal":
+		ws.handleWebRTCSignal(client, msg.Payload)
 	default:
 		log.Printf("Unknown message type: %s", msg.Type)
 	}
@@ -327,4 +329,41 @@ func (ws *WebSocketHandler) BroadcastMessage(chatID uuid.UUID, message *models.M
 	}
 
 	ws.hub.SendToChat(chatID, data, ws.db)
+}
+
+// Hub returns the WebSocket hub
+func (ws *WebSocketHandler) Hub() *Hub {
+	return ws.hub
+}
+
+// handleWebRTCSignal обрабатывает WebRTC signaling сообщения
+func (ws *WebSocketHandler) handleWebRTCSignal(client *Client, payload interface{}) {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("Failed to marshal WebRTC signal payload: %v", err)
+		return
+	}
+
+	var signal models.WebRTCSignal
+	if err := json.Unmarshal(data, &signal); err != nil {
+		log.Printf("Failed to unmarshal WebRTC signal: %v", err)
+		return
+	}
+
+	// Устанавливаем отправителя
+	signal.FromUserID = client.UserID
+
+	// Пересылаем сигнал получателю
+	message, err := json.Marshal(models.WSMessage{
+		Type:    "webrtc.signal",
+		Payload: signal,
+	})
+
+	if err != nil {
+		log.Printf("Failed to marshal WebRTC signal message: %v", err)
+		return
+	}
+
+	ws.hub.SendToUser(signal.ToUserID, message)
+	log.Printf("WebRTC signal %s relayed from %s to %s", signal.Type, signal.FromUserID, signal.ToUserID)
 }

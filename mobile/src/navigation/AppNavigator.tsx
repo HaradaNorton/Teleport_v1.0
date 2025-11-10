@@ -7,6 +7,7 @@ import PhoneInputScreen from '../screens/PhoneInputScreen';
 import CodeVerificationScreen from '../screens/CodeVerificationScreen';
 import ChatListScreen from '../screens/ChatListScreen';
 import ChatScreen from '../screens/ChatScreen';
+import CallScreen from '../screens/CallScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SearchUsersScreen from '../screens/SearchUsersScreen';
 import NewGroupScreen from '../screens/NewGroupScreen';
@@ -19,6 +20,17 @@ export type RootStackParamList = {
   CodeVerification: { phoneNumber: string };
   ChatList: undefined;
   Chat: { chatId: string; chatTitle?: string; chatType?: string };
+  Call: {
+    callId: string;
+    callType: 'audio' | 'video';
+    isIncoming: boolean;
+    callerInfo?: {
+      id: string;
+      name?: string;
+      phone_number: string;
+      avatar_url?: string;
+    };
+  };
   Profile: undefined;
   SearchUsers: { mode?: 'new_chat' | 'add_to_group'; chatId?: string } | undefined;
   NewGroup: { selectedUsers?: User[] };
@@ -62,6 +74,11 @@ export default function AppNavigator() {
               name="Chat"
               component={ChatScreen}
               options={({ route }) => ({ title: route.params.chatTitle || 'Chat' })}
+            />
+            <Stack.Screen
+              name="Call"
+              component={CallScreen}
+              options={{ headerShown: false }}
             />
             <Stack.Screen
               name="Profile"

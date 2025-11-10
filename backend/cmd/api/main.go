@@ -154,6 +154,17 @@ func main() {
 					devices.POST("/unregister", deviceHandler.UnregisterToken)
 				}
 			}
+
+			// Call routes
+			callHandler := handlers.NewCallHandler(db, wsHandler)
+			calls := protected.Group("/calls")
+			{
+				calls.POST("/initiate", callHandler.InitiateCall)
+				calls.POST("/:id/answer", callHandler.AnswerCall)
+				calls.POST("/:id/reject", callHandler.RejectCall)
+				calls.POST("/:id/end", callHandler.EndCall)
+				calls.GET("/history", callHandler.GetCallHistory)
+			}
 		}
 
 		// WebSocket

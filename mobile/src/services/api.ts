@@ -280,6 +280,34 @@ class ApiService {
     await this.client.post('/devices/unregister', { token });
   }
 
+  // Call operations
+  async initiateCall(data: {
+    receiver_id: string;
+    chat_id: string;
+    type: 'audio' | 'video';
+  }): Promise<{ call_id: string; status: string }> {
+    const response = await this.client.post('/calls/initiate', data);
+    return response.data;
+  }
+
+  async answerCall(callId: string): Promise<void> {
+    await this.client.post(`/calls/${callId}/answer`);
+  }
+
+  async rejectCall(callId: string): Promise<void> {
+    await this.client.post(`/calls/${callId}/reject`);
+  }
+
+  async endCall(callId: string): Promise<{ status: string; duration: number }> {
+    const response = await this.client.post(`/calls/${callId}/end`);
+    return response.data;
+  }
+
+  async getCallHistory(): Promise<{ calls: any[]; total: number }> {
+    const response = await this.client.get('/calls/history');
+    return response.data;
+  }
+
   // Helper method для проверки авторизации
   async isAuthenticated(): Promise<boolean> {
     const token = await AsyncStorage.getItem('access_token');
