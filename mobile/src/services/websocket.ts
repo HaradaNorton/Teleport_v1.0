@@ -111,6 +111,13 @@ class WebSocketService {
     });
   }
 
+  sendWebRTCSignal(signal: any) {
+    this.send({
+      type: 'webrtc.signal',
+      payload: signal,
+    });
+  }
+
   isConnected(): boolean {
     return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
   }

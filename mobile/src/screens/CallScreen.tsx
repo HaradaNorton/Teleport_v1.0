@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,10 @@ import {
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
+import { RTCView, MediaStream } from 'react-native-webrtc';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import api from '../services/api';
+import webrtc from '../services/webrtc';
 import { useChatStore } from '../store/chatStore';
 import { useAuthStore } from '../store/authStore';
 
@@ -25,7 +27,11 @@ export default function CallScreen({ navigation, route }: Props) {
   const [callDuration, setCallDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeaker, setIsSpeaker] = useState(false);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const { user } = useAuthStore();
+  const { sendWebRTCSignal, setWebRTCSignalHandler, setCallStatusHandler } = useChatStore();
+  const isInitialized = useRef(false);
 
   // Timer for call duration
   useEffect(() => {
@@ -42,11 +48,144 @@ export default function CallScreen({ navigation, route }: Props) {
     };
   }, [callStatus]);
 
-  // Listen for WebSocket call events
+  // Initialize WebRTC
   useEffect(() => {
-    // TODO: Listen to WebSocket events for call status updates
-    // This will be implemented when WebRTC is integrated
+    if (isInitialized.current) return;
+    isInitialized.current = true;
+
+    initializeWebRTC();
+
+    // Setup WebRTC signal handler
+    setWebRTCSignalHandler(handleWebRTCSignal);
+
+    // Setup call status handler
+    setCallStatusHandler(handleCallStatus);
+
+    // Cleanup on unmount
+    return () => {
+      webrtc.close();
+    };
   }, []);
+
+  const initializeWebRTC = async () => {
+    try {
+      const isVideo = callType === 'video';
+
+      // Initialize WebRTC with callbacks
+      await webrtc.initializeConnection(isVideo, {
+        onLocalStream: (stream) => {
+          console.log('Local stream received');
+          setLocalStream(stream);
+        },
+        onRemoteStream: (stream) => {
+          console.log('Remote stream received');
+          setRemoteStream(stream);
+          setCallStatus('connected');
+        },
+        onIceCandidate: (candidate) => {
+          // Send ICE candidate via WebSocket
+          sendWebRTCSignal({
+            type: 'ice-candidate',
+            call_id: callId,
+            to_user_id: callerInfo?.id || '',
+            candidate: candidate.toJSON ? candidate.toJSON() : candidate,
+          });
+        },
+        onConnectionStateChange: (state) => {
+          console.log('Connection state:', state);
+          if (state === 'connected') {
+            setCallStatus('connected');
+          } else if (state === 'failed' || state === 'disconnected') {
+            handleEndCall();
+          }
+        },
+      });
+
+      // If this is the caller, create and send offer
+      if (!isIncoming) {
+        const offer = await webrtc.createOffer();
+        sendWebRTCSignal({
+          type: 'offer',
+          call_id: callId,
+          to_user_id: callerInfo?.id || '',
+          offer: offer,
+        });
+      }
+    } catch (error: any) {
+      console.error('Failed to initialize WebRTC:', error);
+      Alert.alert('Error', 'Failed to initialize call: ' + error.message);
+      navigation.goBack();
+    }
+  };
+
+  const handleWebRTCSignal = async (signal: any) => {
+    // Only process signals for this call
+    if (signal.call_id !== callId) return;
+
+    try {
+      switch (signal.type) {
+        case 'offer':
+          console.log('Received offer');
+          // Callee receives offer and creates answer
+          const answer = await webrtc.handleOffer(signal.offer);
+          sendWebRTCSignal({
+            type: 'answer',
+            call_id: callId,
+            to_user_id: signal.from_user_id,
+            answer: answer,
+          });
+          break;
+
+        case 'answer':
+          console.log('Received answer');
+          // Caller receives answer
+          await webrtc.handleAnswer(signal.answer);
+          break;
+
+        case 'ice-candidate':
+          console.log('Received ICE candidate');
+          if (signal.candidate) {
+            await webrtc.addIceCandidate(signal.candidate);
+          }
+          break;
+
+        default:
+          console.log('Unknown signal type:', signal.type);
+      }
+    } catch (error) {
+      console.error('Failed to handle WebRTC signal:', error);
+    }
+  };
+
+  const handleCallStatus = (status: any) => {
+    // Only process status for this call
+    if (status.call_id !== callId) return;
+
+    console.log('Call status update:', status);
+
+    switch (status.status) {
+      case 'answered':
+        setCallStatus('accepted');
+        break;
+      case 'rejected':
+        Alert.alert('Call Rejected', 'The call was rejected', [
+          {
+            text: 'OK',
+            onPress: () => navigation.goBack(),
+          },
+        ]);
+        break;
+      case 'ended':
+        const duration = status.duration || 0;
+        Alert.alert('Call Ended', `Duration: ${formatDuration(duration)}`, [
+          {
+            text: 'OK',
+            onPress: () => navigation.goBack(),
+          },
+        ]);
+        break;
+    }
+  };
 
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -58,9 +197,6 @@ export default function CallScreen({ navigation, route }: Props) {
     try {
       await api.answerCall(callId);
       setCallStatus('accepted');
-
-      // TODO: Initialize WebRTC connection and start audio stream
-      Alert.alert('Note', 'WebRTC integration requires Expo bare workflow or custom development client');
     } catch (error: any) {
       console.error('Failed to answer call:', error);
       Alert.alert('Error', 'Failed to answer call');
@@ -93,13 +229,13 @@ export default function CallScreen({ navigation, route }: Props) {
   };
 
   const toggleMute = () => {
-    setIsMuted(!isMuted);
-    // TODO: Implement actual mute functionality with WebRTC
+    const muted = webrtc.toggleMute();
+    setIsMuted(muted);
   };
 
   const toggleSpeaker = () => {
+    // TODO: Implement speaker toggle with react-native-incall-manager
     setIsSpeaker(!isSpeaker);
-    // TODO: Implement actual speaker toggle with audio routing
   };
 
   const getStatusText = (): string => {
@@ -118,32 +254,48 @@ export default function CallScreen({ navigation, route }: Props) {
 
   return (
     <View style={styles.container}>
-      {/* Call Info */}
-      <View style={styles.callInfo}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {callerInfo?.name ? callerInfo.name.charAt(0).toUpperCase() : '?'}
+      {/* Video streams for video calls */}
+      {callType === 'video' && remoteStream && (
+        <RTCView
+          streamURL={remoteStream.toURL()}
+          style={styles.remoteVideo}
+          objectFit="cover"
+          zOrder={0}
+        />
+      )}
+
+      {callType === 'video' && localStream && (
+        <RTCView
+          streamURL={localStream.toURL()}
+          style={styles.localVideo}
+          objectFit="cover"
+          mirror={true}
+          zOrder={1}
+        />
+      )}
+
+      {/* Call Info - shown when no video or during setup */}
+      {(callType === 'audio' || !remoteStream) && (
+        <View style={styles.callInfo}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {callerInfo?.name ? callerInfo.name.charAt(0).toUpperCase() : '?'}
+            </Text>
+          </View>
+
+          <Text style={styles.callerName}>
+            {callerInfo?.name || callerInfo?.phone_number || 'Unknown'}
           </Text>
+
+          <Text style={styles.callStatus}>{getStatusText()}</Text>
+
+          <View style={styles.callTypeBadge}>
+            <Text style={styles.callTypeText}>
+              {callType === 'video' ? '📹 Video Call' : '🎤 Audio Call'}
+            </Text>
+          </View>
         </View>
-
-        <Text style={styles.callerName}>
-          {callerInfo?.name || callerInfo?.phone_number || 'Unknown'}
-        </Text>
-
-        <Text style={styles.callStatus}>{getStatusText()}</Text>
-
-        <View style={styles.callTypeBadge}>
-          <Text style={styles.callTypeText}>
-            {callType === 'video' ? '📹 Video Call' : '🎤 Audio Call'}
-          </Text>
-        </View>
-
-        {(callStatus === 'accepted' || callStatus === 'connected') && (
-          <Text style={styles.callNote}>
-            Note: WebRTC requires bare workflow
-          </Text>
-        )}
-      </View>
+      )}
 
       {/* Call Controls */}
       <View style={styles.controls}>
@@ -200,6 +352,26 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 60,
     paddingBottom: 40,
+  },
+  remoteVideo: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+  },
+  localVideo: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
+    width: 120,
+    height: 160,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#fff',
+    overflow: 'hidden',
   },
   callInfo: {
     alignItems: 'center',

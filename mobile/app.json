@@ -17,7 +17,11 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.teleport.messenger",
-      "buildNumber": "1.0.0"
+      "buildNumber": "1.0.0",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Teleport needs access to your camera for video calls",
+        "NSMicrophoneUsageDescription": "Teleport needs access to your microphone for audio and video calls"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -26,7 +30,14 @@
       },
       "package": "com.teleport.messenger",
       "versionCode": 1,
-      "useNextNotificationsApi": true
+      "useNextNotificationsApi": true,
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "MODIFY_AUDIO_SETTINGS",
+        "ACCESS_NETWORK_STATE",
+        "INTERNET"
+      ]
     },
     "notification": {
       "icon": "./assets/notification-icon.png",

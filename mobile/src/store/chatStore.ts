@@ -8,12 +8,48 @@ interface TypingUser {
   userName?: string;
 }
 
+// Callback types for WebRTC and calls
+export type IncomingCallHandler = (callInfo: {
+  call_id: string;
+  caller_id: string;
+  receiver_id: string;
+  chat_id: string;
+  type: 'audio' | 'video';
+  caller: {
+    id: string;
+    name?: string;
+    phone_number: string;
+    avatar_url?: string;
+  };
+}) => void;
+
+export type WebRTCSignalHandler = (signal: {
+  type: string;
+  call_id: string;
+  from_user_id: string;
+  to_user_id: string;
+  offer?: any;
+  answer?: any;
+  candidate?: any;
+}) => void;
+
+export type CallStatusHandler = (status: {
+  call_id: string;
+  status: string;
+  [key: string]: any;
+}) => void;
+
 interface ChatState {
   chats: ChatResponse[];
   currentChatId: string | null;
   messages: Record<string, Message[]>;
   isLoading: boolean;
   typingUsers: Record<string, TypingUser[]>; // chatId -> users typing
+
+  // Callback handlers for external components
+  onIncomingCall?: IncomingCallHandler;
+  onWebRTCSignal?: WebRTCSignalHandler;
+  onCallStatus?: CallStatusHandler;
 
   // Actions
   loadChats: () => Promise<void>;
@@ -39,6 +75,10 @@ interface ChatState {
   connectWebSocket: () => void;
   disconnectWebSocket: () => void;
   sendTyping: (chatId: string, typing: boolean) => void;
+  sendWebRTCSignal: (signal: any) => void;
+  setIncomingCallHandler: (handler: IncomingCallHandler) => void;
+  setWebRTCSignalHandler: (handler: WebRTCSignalHandler) => void;
+  setCallStatusHandler: (handler: CallStatusHandler) => void;
   handleWebSocketMessage: (message: WSMessage) => void;
 }
 
@@ -194,6 +234,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
     websocket.sendTyping(chatId, typing);
   },
 
+  sendWebRTCSignal: (signal: any) => {
+    websocket.sendWebRTCSignal(signal);
+  },
+
+  setIncomingCallHandler: (handler: IncomingCallHandler) => {
+    set({ onIncomingCall: handler });
+  },
+
+  setWebRTCSignalHandler: (handler: WebRTCSignalHandler) => {
+    set({ onWebRTCSignal: handler });
+  },
+
+  setCallStatusHandler: (handler: CallStatusHandler) => {
+    set({ onCallStatus: handler });
+  },
+
   handleWebSocketMessage: (message: WSMessage) => {
     switch (message.type) {
       case 'message.new':
@@ -286,6 +342,41 @@ export const useChatStore = create<ChatState>((set, get) => ({
             return chat;
           }),
         }));
+        break;
+
+      case 'call.incoming':
+        // Handle incoming call
+        const callInfo = message.payload as any;
+        console.log('Incoming call:', callInfo);
+
+        if (get().onIncomingCall) {
+          get().onIncomingCall(callInfo);
+        }
+        break;
+
+      case 'webrtc.signal':
+        // Handle WebRTC signaling
+        const signal = message.payload as any;
+        console.log('WebRTC signal received:', signal.type);
+
+        if (get().onWebRTCSignal) {
+          get().onWebRTCSignal(signal);
+        }
+        break;
+
+      case 'call.answered':
+      case 'call.rejected':
+      case 'call.ended':
+        // Handle call status updates
+        const statusPayload = message.payload as any;
+        console.log('Call status update:', message.type, statusPayload);
+
+        if (get().onCallStatus) {
+          get().onCallStatus({
+            ...statusPayload,
+            status: message.type.replace('call.', ''),
+          });
+        }
         break;
 
       default:

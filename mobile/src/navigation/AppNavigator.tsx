@@ -40,7 +40,7 @@ export type RootStackParamList = {
 
 const Stack = createStackNavigator<RootStackParamList>();
 
-export default function AppNavigator() {
+const AppNavigator = React.forwardRef((props, ref) => {
   const { isAuthenticated, isLoading } = useAuthStore();
 
   if (isLoading) {
@@ -48,7 +48,7 @@ export default function AppNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={ref as any}>
       <Stack.Navigator>
         {!isAuthenticated ? (
           <>
@@ -110,4 +110,6 @@ export default function AppNavigator() {
       </Stack.Navigator>
     </NavigationContainer>
   );
-}
+});
+
+export default AppNavigator;
